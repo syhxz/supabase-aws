@@ -50,22 +50,22 @@ const SignInPage: NextPageWithLayout = () => {
         // Authentication mode check: {
         //   isPlatform,
         //   requireLogin,
-          environment: runtimeConfig?.environment || 'unknown',
-          source: runtimeConfig?.source || 'build-time',
-        })
+        //   environment: runtimeConfig?.environment || 'unknown',
+        //   source: runtimeConfig?.source || 'build-time',
+        // }
         
         if (!isPlatform && !requireLogin) {
-          console.log('[Sign In] Self-hosted instance without login requirement, redirecting to projects')
+          // Self-hosted instance without login requirement, redirecting to projects
           router.replace('/project/default')
         }
       } catch (error) {
-        console.warn('[Sign In] Failed to fetch runtime config, using build-time defaults:', error)
+        console.warn('Failed to fetch runtime config, using build-time defaults:', error)
         
         // Fall back to build-time configuration
         const requireLogin = process.env.NEXT_PUBLIC_REQUIRE_LOGIN === 'true'
         
         if (!IS_PLATFORM && !requireLogin) {
-          console.log('[Sign In] Using build-time config: redirecting to projects (no login required)')
+          // Using build-time config: redirecting to projects (no login required)
           router.replace('/project/default')
         }
       }

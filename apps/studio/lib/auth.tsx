@@ -53,16 +53,16 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       fetch('/api/runtime-config')
         .then(res => res.json())
         .then(config => {
-          console.log('[Auth] Runtime configuration loaded:', {
-            environment: config.environment,
-            source: config.source,
-            hasGoTrueUrl: !!config.gotrueUrl,
-            hasAnonKey: !!config.anonKey,
-          })
+          // Runtime configuration loaded: {
+          //   environment: config.environment,
+          //   source: config.source,
+          //   hasGoTrueUrl: !!config.gotrueUrl,
+          //   hasAnonKey: !!config.anonKey,
+          // }
           
           // Perform comprehensive environment check with runtime URLs
           if (config.gotrueUrl || config.supabaseUrl || config.apiUrl) {
-            console.log('[Auth] Performing environment validation with runtime URLs')
+            // Performing environment validation with runtime URLs
             const envInfo = performEnvironmentCheck({
               gotrueUrl: config.gotrueUrl,
               supabaseUrl: config.supabaseUrl,
@@ -70,11 +70,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             }, true)
             
             // Log environment-specific guidance
-            console.log(`[Auth] Environment: ${envInfo.environment} (${envInfo.detectionMethod})`)
-            console.log(`[Auth] Context: ${envInfo.context}`)
+            // Environment: ${envInfo.environment} (${envInfo.detectionMethod})
+            // Context: ${envInfo.context}
             
             // Enhanced frontend client URL validation (Requirements 3.1, 3.5)
-            console.log('[Auth] Performing frontend client URL validation')
+            // Performing frontend client URL validation
             const frontendValidation = validateFrontendClientUrls(
               config.supabaseUrl,
               config.gotrueUrl,
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
                 action: {
                   label: 'View Details',
                   onClick: () => {
-                    console.log('[Auth] Frontend validation details:', frontendValidation)
+                    // Frontend validation details: frontendValidation
                     logFrontendSetupInfo()
                   },
                 },
@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
             }
             
             // Perform comprehensive configuration validation with error handling and guidance
-            console.log('[Auth] Performing comprehensive configuration validation')
+            // Performing comprehensive configuration validation
             const configValidation = validateConfiguration({
               includeFrontend: true,
               includeDockerChecks: true,
@@ -153,14 +153,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
                 action: {
                   label: 'View Guide',
                   onClick: () => {
-                    console.log('[Auth] Troubleshooting Guide:', configValidation.troubleshootingGuide)
+                    // Troubleshooting Guide: configValidation.troubleshootingGuide
                   },
                 },
               })
             } else if (configValidation.warnings.length > 0) {
-              console.warn(`[Auth] ⚠️ Configuration has ${configValidation.warnings.length} warnings`)
+              console.warn(`Configuration has ${configValidation.warnings.length} warnings`)
             } else {
-              console.log('[Auth] ✅ Configuration validation passed')
+              // Configuration validation passed
             }
           }
           
@@ -170,7 +170,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           console.warn('[Auth] Failed to fetch runtime config, using build-time defaults:', error)
           
           // Perform comprehensive validation even with fallback config
-          console.log('[Auth] Validating configuration with build-time defaults')
+          // Validating configuration with build-time defaults
           const fallbackValidation = validateConfiguration({
             includeFrontend: true,
             includeDockerChecks: false, // Skip Docker checks for fallback
@@ -204,12 +204,12 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     // Authentication mode: {
     //   IS_PLATFORM: isPlatform,
     //   requireLogin,
-      alwaysLoggedIn,
-      mode: alwaysLoggedIn ? 'auto-login' : 'GoTrue authentication',
-      runtimeConfigLoaded: !!runtimeConfig,
-      environment: runtimeConfig?.environment || 'unknown',
-      configSource: runtimeConfig?.source || 'not-loaded',
-    })
+    //   alwaysLoggedIn,
+    //   mode: alwaysLoggedIn ? 'auto-login' : 'GoTrue authentication',
+    //   runtimeConfigLoaded: !!runtimeConfig,
+    //   environment: runtimeConfig?.environment || 'unknown',
+    //   configSource: runtimeConfig?.source || 'not-loaded',
+    // }
   }
 
   // Perform GoTrue health check on mount when authentication is required
@@ -217,9 +217,9 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     if (requireLogin && !isPlatform) {
       const performHealthCheck = async () => {
         try {
-          console.log('[Auth] Performing GoTrue health check for self-hosted environment')
-          console.log('[Auth] Environment:', runtimeConfig?.environment || 'unknown')
-          console.log('[Auth] Config source:', runtimeConfig?.source || 'build-time')
+          // Performing GoTrue health check for self-hosted environment
+          // Environment: runtimeConfig?.environment || 'unknown'
+          // Config source: runtimeConfig?.source || 'build-time'
           
           // Use retry mechanism with exponential backoff
           const result = await checkGoTrueHealthWithRetry(undefined, 3, 1000)
@@ -251,8 +251,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
               },
             })
           } else {
-            console.log('[Auth] ✓ GoTrue service is healthy', result)
-            console.log('[Auth] Environment:', runtimeConfig?.environment || 'unknown')
+            // GoTrue service is healthy: result
+            // Environment: runtimeConfig?.environment || 'unknown'
           }
         } catch (error) {
           console.error('[Auth] Unexpected error during health check:', error)
