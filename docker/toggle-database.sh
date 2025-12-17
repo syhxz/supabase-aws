@@ -26,12 +26,20 @@ enable_builtin() {
             # Add new line
             echo "ENABLE_SUPABASE_DB=true" >> "$ENV_FILE"
         fi
+        
+        # Update POSTGRES_HOST to use built-in database
+        if grep -q "POSTGRES_HOST=" "$ENV_FILE"; then
+            sed -i.bak 's/POSTGRES_HOST=.*/POSTGRES_HOST=db/' "$ENV_FILE"
+        else
+            echo "POSTGRES_HOST=db" >> "$ENV_FILE"
+        fi
     else
         echo "❌ Error: $ENV_FILE not found"
         exit 1
     fi
     echo "✅ Built-in PostgreSQL database ENABLED"
-    echo "💡 Restart services with: ./quick-start.sh"
+    echo "💡 POSTGRES_HOST set to 'db' (built-in database)"
+    echo "💡 Restart services with: ./quick-start.sh --with-db"
 }
 
 # Function to disable built-in database
@@ -44,11 +52,19 @@ disable_builtin() {
             # Add new line
             echo "ENABLE_SUPABASE_DB=false" >> "$ENV_FILE"
         fi
+        
+        # Update POSTGRES_HOST to use external database
+        if grep -q "POSTGRES_HOST=" "$ENV_FILE"; then
+            sed -i.bak 's/POSTGRES_HOST=.*/POSTGRES_HOST=your-external-db-host/' "$ENV_FILE"
+        else
+            echo "POSTGRES_HOST=your-external-db-host" >> "$ENV_FILE"
+        fi
     else
         echo "❌ Error: $ENV_FILE not found"
         exit 1
     fi
     echo "✅ Built-in PostgreSQL database DISABLED (using external database)"
+    echo "💡 POSTGRES_HOST set to 'your-external-db-host' (update this in $ENV_FILE)"
     echo "💡 Make sure to configure external database connection in $ENV_FILE"
     echo "💡 Restart services with: ./quick-start.sh"
 }

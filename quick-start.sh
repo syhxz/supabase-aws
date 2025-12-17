@@ -80,16 +80,19 @@ fi
 
 # Step 2: Determine which services to start
 COMPOSE_PROFILES=""
+USE_BUILTIN_DB=false
 
 # Check if database should be enabled
 if [ "$ENABLE_DB" = true ]; then
     echo "🗄️  Built-in PostgreSQL database will be enabled"
     COMPOSE_PROFILES="--profile db"
+    USE_BUILTIN_DB=true
 else
     # Check .env file for database setting
     if [ -f "docker/.env" ] && grep -q "ENABLE_SUPABASE_DB=true" docker/.env; then
         echo "🗄️  Built-in PostgreSQL database enabled via .env file"
         COMPOSE_PROFILES="--profile db"
+        USE_BUILTIN_DB=true
     else
         echo "🔗 Using external database (built-in PostgreSQL disabled)"
         echo "💡 Use --with-db flag or set ENABLE_SUPABASE_DB=true in docker/.env to enable built-in database"
@@ -105,9 +108,9 @@ if containers_running; then
     docker compose -f docker/docker-compose.yml down
 fi
 
-# Start services with appropriate profiles
+# Start services with appropriate configuration
 echo "▶️  Starting services..."
-if [ -n "$COMPOSE_PROFILES" ]; then
+if [ "$USE_BUILTIN_DB" = true ]; then
     docker compose -f docker/docker-compose.yml $COMPOSE_PROFILES up -d
 else
     docker compose -f docker/docker-compose.yml up -d
@@ -116,13 +119,13 @@ fi
 # Step 4: Wait for services to be healthy
 echo "⏳ Waiting for services to be ready..."
 
-# Wait for database to be healthy (only if enabled)
-if [ -n "$COMPOSE_PROFILES" ]; then
+# Wait for database to be healthy (only if using built-in database)
+if [ "$USE_BUILTIN_DB" = true ]; then
     echo "  📊 Waiting for database..."
     timeout=60
     counter=0
     while [ $counter -lt $timeout ]; do
-        if docker compose -f docker/docker-compose.yml ps db | grep -q "healthy"; then
+        if docker compose -f docker/docker-compose.yml $COMPOSE_PROFILES ps db | grep -q "healthy"; then
             echo "  ✅ Database is ready"
             break
         fi
@@ -162,14 +165,14 @@ echo "🎉 Supabase Studio is ready!"
 echo "🌐 Studio URL: http://localhost:3000"
 echo "📊 Analytics: http://localhost:4000"
 echo "🔧 Kong Gateway: http://localhost:8000"
-if [ -n "$COMPOSE_PROFILES" ]; then
+if [ "$USE_BUILTIN_DB" = true ]; then
     echo "🗄️  Built-in Database: http://localhost:5432"
 else
     echo "🔗 Using external database"
 fi
 echo ""
 echo "📋 Service Status:"
-if [ -n "$COMPOSE_PROFILES" ]; then
+if [ "$USE_BUILTIN_DB" = true ]; then
     docker compose -f docker/docker-compose.yml $COMPOSE_PROFILES ps
 else
     docker compose -f docker/docker-compose.yml ps
@@ -178,12 +181,13 @@ fi
 echo ""
 echo "💡 Useful commands:"
 echo "  View logs:     docker logs supabase-studio --follow"
-if [ -n "$COMPOSE_PROFILES" ]; then
+if [ "$USE_BUILTIN_DB" = true ]; then
     echo "  Stop services: docker compose -f docker/docker-compose.yml --profile db down"
 else
     echo "  Stop services: docker compose -f docker/docker-compose.yml down"
 fi
 echo "  Restart:       ./quick-start.sh"
-if [ -z "$COMPOSE_PROFILES" ]; then
+if [ "$USE_BUILTIN_DB" = false ]; then
     echo "  Enable DB:     ./quick-start.sh --with-db"
 fi
+echo "  Toggle DB:     docker/toggle-database.sh [enable|disable|status]"

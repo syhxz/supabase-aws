@@ -52,10 +52,10 @@ Use the convenient toggle script:
 ### Method 4: Docker Compose Profiles
 Directly use Docker Compose with profiles:
 ```bash
-# With built-in database
+# With built-in database (using db profile)
 docker compose -f docker/docker-compose.yml --profile db up -d
 
-# Without built-in database (default)
+# Without built-in database (external database mode - default)
 docker compose -f docker/docker-compose.yml up -d
 ```
 
@@ -98,7 +98,7 @@ When switching between built-in and external database:
 
 ## Service Dependencies
 
-The following services depend on the database and will adapt automatically:
+The following services have optional database dependencies that adapt automatically:
 - `auth` (GoTrue)
 - `rest` (PostgREST) 
 - `realtime`
@@ -106,5 +106,17 @@ The following services depend on the database and will adapt automatically:
 - `meta`
 - `functions`
 - `analytics`
+- `vector`
 
-When using external database mode, these services will attempt to connect to your external database using the configured connection parameters.
+### How Dependencies Work
+
+**Built-in Database Mode (`--profile db`):**
+- Services wait for the built-in `db` service to be healthy before starting
+- All services connect to `db:5432`
+
+**External Database Mode (default):**
+- Services start immediately without waiting for built-in database
+- All services connect to the external database specified in `POSTGRES_HOST`
+- The `db` service is not started at all
+
+This is achieved using Docker Compose's `required: false` dependency feature, which makes database dependencies optional based on whether the database service is actually running.

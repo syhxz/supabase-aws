@@ -1,7 +1,8 @@
--- Migration: Create studio_projects table for storing project metadata
--- This replaces the JSON file-based storage with a proper database table
+-- Studio Projects Table Initialization
+-- This script creates the studio_projects table for storing project metadata
+-- It runs during database initialization in Docker containers
 
--- Create the studio_projects table
+-- Create the studio_projects table with all required fields
 CREATE TABLE IF NOT EXISTS public.studio_projects (
   id SERIAL PRIMARY KEY,
   ref TEXT UNIQUE NOT NULL,
@@ -41,10 +42,16 @@ CREATE TRIGGER trigger_studio_projects_updated_at
   EXECUTE FUNCTION update_studio_projects_updated_at();
 
 -- Add comments for documentation
-COMMENT ON TABLE public.studio_projects IS 'Stores metadata for Studio-managed projects';
+COMMENT ON TABLE public.studio_projects IS 'Stores metadata for Studio-managed projects including authentication credentials';
 COMMENT ON COLUMN public.studio_projects.ref IS 'Unique project reference identifier';
 COMMENT ON COLUMN public.studio_projects.database_name IS 'PostgreSQL database name';
 COMMENT ON COLUMN public.studio_projects.database_user IS 'Project-specific database user for authentication (nullable for legacy projects)';
 COMMENT ON COLUMN public.studio_projects.database_password_hash IS 'Hashed password for project-specific database user (nullable for legacy projects)';
 COMMENT ON COLUMN public.studio_projects.owner_user_id IS 'GoTrue user ID of the project owner';
 COMMENT ON COLUMN public.studio_projects.connection_string IS 'Database connection string';
+
+-- Grant appropriate permissions
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.studio_projects TO postgres;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.studio_projects TO supabase_admin;
+GRANT USAGE ON SEQUENCE public.studio_projects_id_seq TO postgres;
+GRANT USAGE ON SEQUENCE public.studio_projects_id_seq TO supabase_admin;
