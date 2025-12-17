@@ -1,0 +1,108 @@
+# Production Docker Compose Override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
+# This file demonstrates how to configure Supabase Studio for production
+# deployment with runtime environment variables.
+
+services:
+  studio:
+    # Production build configuration with proper environment variable passing
+    build:
+      context: ..
+      dockerfile: apps/studio/Dockerfile
+      target: production
+      args:
+        # Requirements 1.1, 1.3: Ensure ENVIRONMENT and NODE_ENV are properly passed to Docker builds
+        # Production builds should explicitly set ENVIRONMENT=production
+        - ENVIRONMENT=production
+        - NODE_ENV=production
+        - NEXT_PUBLIC_REQUIRE_LOGIN=true
+        - NEXT_PUBLIC_IS_PLATFORM=false
+    
+    # Production-specific environment variables
+    environment:
+      # Production environment identifier (runtime)
+      ENVIRONMENT: production
+      
+      # Production URLs - CHANGE THESE TO YOUR ACTUAL PRODUCTION URLS
+      # These URLs must be accessible from the browser/client
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-https://api.your-domain.com}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-https://api.your-domain.com}
+      
+      # Production platform settings
+      NEXT_PUBLIC_IS_PLATFORM: false
+      NEXT_PUBLIC_REQUIRE_LOGIN: true
+      
+      # Enhanced health check configuration for production
+      HEALTHCHECK_TIMEOUT: 10s
+      HEALTHCHECK_INTERVAL: 30s
+      HEALTHCHECK_RETRIES: 5
+      
+      # Production logging configuration
+      NEXT_PUBLIC_ENABLE_LOGS: true
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+      
+      # Database discovery disabled in production for security
+      ENABLE_DATABASE_DISCOVERY: false
+      
+      # Production database creation settings (more conservative)
+      TEMPLATE_CONNECTION_WAIT_MS: 1000
+      DATABASE_CREATION_MAX_RETRIES: 5
+      DATABASE_CREATION_RETRY_DELAY_MS: 1000
+
+    # Production health check configuration
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:3000/api/health"
+        ]
+      timeout: 10s
+      interval: 30s
+      start_period: 120s  # Longer start period for production
+      retries: 5
+
+    # Production restart policy
+    restart: always
+
+    # Production resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Production-specific Kong configuration
+  kong:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # Production-specific database configuration
+  db:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+
+# Production-specific volumes with better performance
+volumes:
+  db-config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/supabase/db-config
