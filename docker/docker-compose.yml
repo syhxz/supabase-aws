@@ -202,7 +202,7 @@ services:
 
   rest:
     container_name: supabase-rest
-    image: supabase/postgrest:v13.0.7
+    image: postgrest/postgrest:v13.0.7
     restart: unless-stopped
     depends_on:
       analytics:
