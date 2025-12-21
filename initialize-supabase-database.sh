@@ -4,8 +4,6 @@
 # This script initializes both postgres and _supabase databases with all required
 # schemas, extensions, roles, and service users with custom passwords
 
-set -e
-
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -69,14 +67,14 @@ OPTIONS:
 EXAMPLES:
     # Initialize Docker database with custom password
     $0 --docker --service-password "MySecurePassword123"
-    
+
     # Initialize remote database
     $0 -t db.example.com -U postgres -P dbpass \\
        -w "ServicePassword123"
-    
+
     # Dry run to see what would happen
     $0 --docker --service-password "test" --dry-run
-    
+
     # Skip user creation, only initialize schemas
     $0 --docker --service-password "test" --skip-users
 
@@ -187,7 +185,7 @@ if [ "$USE_DOCKER" = true ]; then
         source "$ENV_FILE"
         print_success "Loaded environment variables from $ENV_FILE"
         TARGET_PASSWORD="${POSTGRES_PASSWORD}"
-        
+
         # Load JWT settings
         JWT_SECRET="${JWT_SECRET}"
         JWT_EXP="${JWT_EXPIRY:-3600}"
@@ -227,19 +225,30 @@ execute_sql() {
     local sql="$1"
     local database="${2:-postgres}"
     local description="$3"
-    
+
     if [ "$DRY_RUN" = true ]; then
         if [ -n "$description" ]; then
             print_info "[DRY RUN] Would execute: $description"
         fi
         return 0
     fi
-    
+
+    local result
     if [ "$USE_DOCKER" = true ]; then
-        docker exec supabase-db psql -U "$TARGET_USER" -d "$database" -c "$sql" > /dev/null 2>&1
+        result=$(docker exec supabase-db psql -U "$TARGET_USER" -d "$database" -c "$sql" 2>&1)
     else
-        PGPASSWORD="$TARGET_PASSWORD" psql -h "$TARGET_HOST" -p "$TARGET_PORT" -U "$TARGET_USER" -d "$database" -c "$sql" > /dev/null 2>&1
+        result=$(PGPASSWORD="$TARGET_PASSWORD" psql -h "$TARGET_HOST" -p "$TARGET_PORT" -U "$TARGET_USER" -d "$database" -c "$sql" 2>&1)
     fi
+
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        if [ -n "$description" ]; then
+            print_warning "SQL execution warning for: $description"
+            echo "Error: $result" >&2
+        fi
+        return 1
+    fi
+    return 0
 }
 
 # Function to execute SQL file
@@ -247,12 +256,12 @@ execute_sql_file() {
     local file_path="$1"
     local database="${2:-postgres}"
     local description="$3"
-    
+
     if [ "$DRY_RUN" = true ]; then
         print_info "[DRY RUN] Would execute file: $file_path on database: $database"
         return 0
     fi
-    
+
     if [ "$USE_DOCKER" = true ]; then
         # Copy file to container and execute
         docker cp "$file_path" supabase-db:/tmp/temp_init.sql > /dev/null 2>&1
@@ -267,13 +276,13 @@ execute_sql_file() {
 check_database_exists() {
     local dbname="$1"
     local result
-    
+
     if [ "$USE_DOCKER" = true ]; then
         result=$(docker exec supabase-db psql -U "$TARGET_USER" -t -c "SELECT 1 FROM pg_database WHERE datname='$dbname';" 2>/dev/null | tr -d ' \n')
     else
         result=$(PGPASSWORD="$TARGET_PASSWORD" psql -h "$TARGET_HOST" -p "$TARGET_PORT" -U "$TARGET_USER" -t -c "SELECT 1 FROM pg_database WHERE datname='$dbname';" 2>/dev/null | tr -d ' \n')
     fi
-    
+
     [ "$result" = "1" ]
 }
 
@@ -281,13 +290,13 @@ check_database_exists() {
 check_user_exists() {
     local username="$1"
     local result
-    
+
     if [ "$USE_DOCKER" = true ]; then
         result=$(docker exec supabase-db psql -U "$TARGET_USER" -d postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='$username';" 2>/dev/null | tr -d ' \n')
     else
         result=$(PGPASSWORD="$TARGET_PASSWORD" psql -h "$TARGET_HOST" -p "$TARGET_PORT" -U "$TARGET_USER" -d postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='$username';" 2>/dev/null | tr -d ' \n')
     fi
-    
+
     [ "$result" = "1" ]
 }
 
@@ -307,21 +316,21 @@ fi
 
 if [ "$SKIP_SCHEMAS" = false ] && [ "$SKIP_MIGRATIONS" = false ]; then
     print_header "Step 0: Apply Exported Schema Migration"
-    
+
     # Apply the exported current schema with error handling FIRST
     EXPORTED_SCHEMA_FILE="supabase/migrations/20251210212821_export_current_schema.sql"
     if [ -f "$EXPORTED_SCHEMA_FILE" ]; then
         print_step "Applying exported schema from $EXPORTED_SCHEMA_FILE..."
-        
+
         # Create a temporary file with error-tolerant SQL
         TEMP_SCHEMA_FILE="/tmp/temp_schema_$(date +%s).sql"
-        
+
         if [ "$DRY_RUN" = false ]; then
             # Add error handling to the SQL file
             cat > "$TEMP_SCHEMA_FILE" << 'EOF'
 -- Set error handling for migration
 SET client_min_messages = WARNING;
-DO $$ 
+DO $$
 BEGIN
     -- This block will catch and ignore errors for objects that already exist
     NULL;
@@ -330,13 +339,13 @@ END $$;
 EOF
             # Append the original schema file content
             cat "$EXPORTED_SCHEMA_FILE" >> "$TEMP_SCHEMA_FILE"
-            
+
             if execute_sql_file "$TEMP_SCHEMA_FILE" "postgres" "Apply exported current schema"; then
                 print_success "Applied exported schema successfully"
             else
                 print_warning "Some objects from exported schema may already exist (this is normal)"
             fi
-            
+
             # Clean up temporary file
             rm -f "$TEMP_SCHEMA_FILE"
         else
@@ -354,7 +363,7 @@ fi
 
 if [ "$SKIP_SCHEMAS" = false ]; then
     print_header "Step 1: Initialize _supabase Database"
-    
+
     if check_database_exists "_supabase"; then
         print_info "_supabase database already exists"
     else
@@ -362,21 +371,20 @@ if [ "$SKIP_SCHEMAS" = false ]; then
         if execute_sql "CREATE DATABASE _supabase WITH OWNER $TARGET_USER;" "postgres" "Create _supabase database"; then
             print_success "Created _supabase database"
         else
-            print_error "Failed to create _supabase database"
-            exit 1
+            print_warning "_supabase database might already exist, continuing..."
         fi
     fi
-    
+
     # Create and initialize _analytics schema in _supabase
     if [ "$SKIP_TABLES" = false ]; then
         print_step "Creating _analytics schema and tables..."
     else
         print_step "Creating _analytics schema..."
     fi
-    
+
     if execute_sql "CREATE SCHEMA IF NOT EXISTS _analytics;" "_supabase" "Create _analytics schema"; then
         execute_sql "ALTER SCHEMA _analytics OWNER TO $TARGET_USER;" "_supabase" "Set _analytics owner"
-        
+
         # Initialize analytics tables if SQL file exists and not skipping tables
         if [ "$SKIP_TABLES" = false ] && [ -f "apps/studio/lib/project-initialization/sql/analytics-schema.sql" ]; then
             if execute_sql_file "apps/studio/lib/project-initialization/sql/analytics-schema.sql" "_supabase" "Initialize analytics tables"; then
@@ -403,19 +411,19 @@ fi
 
 if [ "$SKIP_SCHEMAS" = false ]; then
     print_header "Step 2: Initialize postgres Database Schemas"
-    
+
     # Create extensions schema
     print_step "Creating extensions schema..."
     execute_sql "CREATE SCHEMA IF NOT EXISTS extensions;" "postgres" "Create extensions schema"
     print_success "Created extensions schema"
-    
+
     # Create basic extensions
     print_step "Installing PostgreSQL extensions..."
     execute_sql "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\" SCHEMA extensions;" "postgres" "Install uuid-ossp"
     execute_sql "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\" SCHEMA extensions;" "postgres" "Install pgcrypto"
     execute_sql "CREATE EXTENSION IF NOT EXISTS \"pg_stat_statements\";" "postgres" "Install pg_stat_statements"
     print_success "Installed basic extensions"
-    
+
     # Create and initialize auth schema with tables
     if [ "$SKIP_TABLES" = false ]; then
         print_step "Creating auth schema and tables..."
@@ -423,7 +431,7 @@ if [ "$SKIP_SCHEMAS" = false ]; then
         print_step "Creating auth schema..."
     fi
     execute_sql "CREATE SCHEMA IF NOT EXISTS auth;" "postgres" "Create auth schema"
-    
+
     # Initialize auth tables if SQL file exists and not skipping tables
     if [ "$SKIP_TABLES" = false ] && [ -f "apps/studio/lib/project-initialization/sql/auth-schema.sql" ]; then
         if execute_sql_file "apps/studio/lib/project-initialization/sql/auth-schema.sql" "postgres" "Initialize auth tables"; then
@@ -439,7 +447,7 @@ if [ "$SKIP_SCHEMAS" = false ]; then
             print_success "Created auth schema (tables will be created by GoTrue on first start)"
         fi
     fi
-    
+
     # Create and initialize storage schema with tables
     if [ "$SKIP_TABLES" = false ]; then
         print_step "Creating storage schema and tables..."
@@ -447,7 +455,7 @@ if [ "$SKIP_SCHEMAS" = false ]; then
         print_step "Creating storage schema..."
     fi
     execute_sql "CREATE SCHEMA IF NOT EXISTS storage;" "postgres" "Create storage schema"
-    
+
     # Initialize storage tables if SQL file exists and not skipping tables
     if [ "$SKIP_TABLES" = false ] && [ -f "apps/studio/lib/project-initialization/sql/storage-schema.sql" ]; then
         if execute_sql_file "apps/studio/lib/project-initialization/sql/storage-schema.sql" "postgres" "Initialize storage tables"; then
@@ -463,13 +471,13 @@ if [ "$SKIP_SCHEMAS" = false ]; then
             print_success "Created storage schema (tables will be created by Storage service on first start)"
         fi
     fi
-    
+
     # Create _realtime schema
     print_step "Creating _realtime schema..."
     execute_sql "CREATE SCHEMA IF NOT EXISTS _realtime;" "postgres" "Create _realtime schema"
     execute_sql "ALTER SCHEMA _realtime OWNER TO $TARGET_USER;" "postgres" "Set _realtime owner"
     print_success "Created _realtime schema"
-    
+
     # Create supabase_functions schema (from webhooks.sql)
     print_step "Creating supabase_functions schema..."
     if [ -f "docker/volumes/db/webhooks.sql" ]; then
@@ -489,17 +497,17 @@ fi
 
 if [ "$SKIP_USERS" = false ]; then
     print_header "Step 3: Create Base Roles"
-    
+
     BASE_ROLES=(
         "anon:NOLOGIN NOINHERIT"
         "authenticated:NOLOGIN NOINHERIT"
         "service_role:NOLOGIN NOINHERIT BYPASSRLS"
         "dashboard_user:NOLOGIN"
     )
-    
+
     for role_def in "${BASE_ROLES[@]}"; do
         IFS=':' read -r rolename attributes <<< "$role_def"
-        
+
         if check_user_exists "$rolename"; then
             print_info "$rolename role already exists"
         else
@@ -519,24 +527,24 @@ fi
 
 if [ "$SKIP_USERS" = false ]; then
     print_header "Step 4: Create Service Users"
-    
+
     # Service users configuration
     SERVICE_USERS_LIST=(
         "supabase_auth_admin:NOLOGIN NOINHERIT"
         "authenticator:NOINHERIT LOGIN"
         "supabase_storage_admin:NOLOGIN NOINHERIT"
-        "supabase_admin:LOGIN CREATEROLE CREATEDB REPLICATION BYPASSRLS"
+        "supabase_admin:LOGIN CREATEROLE CREATEDB BYPASSRLS"
         "supabase_functions_admin:NOINHERIT CREATEROLE LOGIN NOREPLICATION"
         "pgbouncer:LOGIN"
         "supabase_read_only_user:LOGIN"
     )
-    
+
     CREATED_COUNT=0
     UPDATED_COUNT=0
-    
+
     for user_def in "${SERVICE_USERS_LIST[@]}"; do
         IFS=':' read -r username attributes <<< "$user_def"
-        
+
         if check_user_exists "$username"; then
             print_step "Updating password for $username..."
             if execute_sql "ALTER USER $username WITH PASSWORD '$SERVICE_PASSWORD';" "postgres" "Update password for $username"; then
@@ -551,22 +559,21 @@ if [ "$SKIP_USERS" = false ]; then
                 print_success "Created user $username"
                 ((CREATED_COUNT++))
             else
-                print_error "Failed to create user $username"
+                print_warning "Failed to create user $username, might already exist"
             fi
         fi
     done
-    
+
     # Grant roles
     print_step "Granting role memberships..."
-    execute_sql "GRANT anon TO authenticator;" "postgres" "Grant anon to authenticator"
-    execute_sql "GRANT authenticated TO authenticator;" "postgres" "Grant authenticated to authenticator"
-    execute_sql "GRANT service_role TO authenticator;" "postgres" "Grant service_role to authenticator"
-    execute_sql "GRANT supabase_auth_admin TO supabase_admin;" "postgres" "Grant auth admin"
-    execute_sql "GRANT supabase_storage_admin TO supabase_admin;" "postgres" "Grant storage admin"
-    execute_sql "GRANT supabase_functions_admin TO supabase_admin;" "postgres" "Grant functions admin"
-    execute_sql "GRANT supabase_functions_admin TO postgres;" "postgres" "Grant functions admin to postgres"
+    execute_sql "GRANT anon TO authenticator;" "postgres" "Grant anon to authenticator" || true
+    execute_sql "GRANT authenticated TO authenticator;" "postgres" "Grant authenticated to authenticator" || true
+    execute_sql "GRANT service_role TO authenticator;" "postgres" "Grant service_role to authenticator" || true
+    execute_sql "GRANT supabase_auth_admin TO supabase_admin;" "postgres" "Grant auth admin" || true
+    execute_sql "GRANT supabase_storage_admin TO supabase_admin;" "postgres" "Grant storage admin" || true
+    execute_sql "GRANT supabase_functions_admin TO supabase_admin;" "postgres" "Grant functions admin" || true
     print_success "Granted role memberships"
-    
+
     echo ""
     print_info "Service users summary:"
     echo "  Created: $CREATED_COUNT"
@@ -579,7 +586,7 @@ fi
 
 if [ "$SKIP_SCHEMAS" = false ] && [ -n "$JWT_SECRET" ]; then
     print_header "Step 5: Configure JWT Settings"
-    
+
     print_step "Setting JWT configuration..."
     execute_sql "ALTER DATABASE postgres SET \"app.settings.jwt_secret\" TO '$JWT_SECRET';" "postgres" "Set JWT secret"
     execute_sql "ALTER DATABASE postgres SET \"app.settings.jwt_exp\" TO '${JWT_EXP:-3600}';" "postgres" "Set JWT expiry"
@@ -592,28 +599,28 @@ fi
 
 if [ "$SKIP_SCHEMAS" = false ] && [ "$SKIP_MIGRATIONS" = false ]; then
     print_header "Step 6: Apply Additional Migration Files"
-    
+
     # Note: Exported schema migration already applied in Step 0
     # Skip the exported schema file since it's already applied
     # Apply other migration files in order
     MIGRATIONS_DIR="supabase/migrations"
     if [ -d "$MIGRATIONS_DIR" ]; then
         print_step "Applying additional migration files..."
-        
+
         # Get all .sql files in migrations directory, sorted by name
         MIGRATION_FILES=$(find "$MIGRATIONS_DIR" -name "*.sql" -type f | sort)
         APPLIED_COUNT=0
         SKIPPED_COUNT=0
-        
+
         for migration_file in $MIGRATION_FILES; do
             # Skip the main exported schema file as it's already applied
             if [[ "$migration_file" == *"20251210212821_export_current_schema.sql" ]]; then
                 continue
             fi
-            
+
             filename=$(basename "$migration_file")
             print_step "  Applying migration: $filename"
-            
+
             if execute_sql_file "$migration_file" "postgres" "Apply migration $filename"; then
                 print_success "  ✓ Applied $filename"
                 ((APPLIED_COUNT++))
@@ -622,7 +629,7 @@ if [ "$SKIP_SCHEMAS" = false ] && [ "$SKIP_MIGRATIONS" = false ]; then
                 ((SKIPPED_COUNT++))
             fi
         done
-        
+
         echo ""
         print_info "Migration summary:"
         echo "  Applied: $APPLIED_COUNT"
@@ -638,25 +645,25 @@ fi
 
 if [ "$SKIP_SCHEMAS" = false ] && [ "$SKIP_USERS" = false ]; then
     print_header "Step 7: Grant Schema Permissions"
-    
+
     print_step "Granting permissions on auth schema..."
     execute_sql "GRANT USAGE ON SCHEMA auth TO postgres, anon, authenticated, service_role;" "postgres"
     execute_sql "GRANT ALL ON ALL TABLES IN SCHEMA auth TO postgres, supabase_auth_admin;" "postgres"
     execute_sql "GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO postgres, supabase_auth_admin;" "postgres"
     execute_sql "GRANT ALL ON ALL FUNCTIONS IN SCHEMA auth TO postgres, supabase_auth_admin;" "postgres"
     print_success "Granted auth schema permissions"
-    
+
     print_step "Granting permissions on storage schema..."
     execute_sql "GRANT USAGE ON SCHEMA storage TO postgres, anon, authenticated, service_role;" "postgres"
     execute_sql "GRANT ALL ON ALL TABLES IN SCHEMA storage TO postgres, supabase_storage_admin;" "postgres"
     execute_sql "GRANT ALL ON ALL SEQUENCES IN SCHEMA storage TO postgres, supabase_storage_admin;" "postgres"
     execute_sql "GRANT ALL ON ALL FUNCTIONS IN SCHEMA storage TO postgres, supabase_storage_admin;" "postgres"
     print_success "Granted storage schema permissions"
-    
+
     print_step "Granting permissions on extensions schema..."
     execute_sql "GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated, service_role;" "postgres"
     print_success "Granted extensions schema permissions"
-    
+
     print_step "Granting read-only permissions to supabase_read_only_user..."
     execute_sql "GRANT CONNECT ON DATABASE postgres TO supabase_read_only_user;" "postgres"
     execute_sql "GRANT USAGE ON SCHEMA public TO supabase_read_only_user;" "postgres"
@@ -670,13 +677,13 @@ fi
 
 if [ "$USE_DOCKER" = true ] && [ "$DRY_RUN" = false ] && [ "$SKIP_USERS" = false ]; then
     print_header "Step 8: Update Environment File"
-    
+
     if [ -f "$ENV_FILE" ]; then
         # Backup original file
         BACKUP_FILE="${ENV_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
         cp "$ENV_FILE" "$BACKUP_FILE"
         print_success "Created backup: $BACKUP_FILE"
-        
+
         # Update POSTGRES_PASSWORD in .env
         if grep -q "^POSTGRES_PASSWORD=" "$ENV_FILE"; then
             sed -i.tmp "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$SERVICE_PASSWORD|" "$ENV_FILE"
@@ -701,7 +708,7 @@ if [ "$DRY_RUN" = false ]; then
     echo "  ✓ postgres (with auth, storage, _realtime, supabase_functions schemas)"
     echo "  ✓ _supabase (with _analytics schema)"
     echo ""
-    
+
     if [ "$SKIP_USERS" = false ]; then
         print_info "Service users configured:"
         echo "  ✓ supabase_auth_admin"
@@ -713,7 +720,7 @@ if [ "$DRY_RUN" = false ]; then
         echo "  ✓ supabase_read_only_user"
         echo ""
     fi
-    
+
     print_info "Next steps:"
     echo "  1. Verify database connection:"
     if [ "$USE_DOCKER" = true ]; then
