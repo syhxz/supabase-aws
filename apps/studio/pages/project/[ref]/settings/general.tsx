@@ -1,4 +1,4 @@
-import { IS_PLATFORM } from 'common'
+import { IS_PLATFORM, useParams } from 'common'
 import { subscriptionHasHipaaAddon } from 'components/interfaces/Billing/Subscription/Subscription.utils'
 import { ComplianceConfig } from 'components/interfaces/Settings/General/ComplianceConfig/ProjectComplianceMode'
 import { CustomDomainConfig } from 'components/interfaces/Settings/General/CustomDomainConfig/CustomDomainConfig'
@@ -17,6 +17,7 @@ import { useEffect } from 'react'
 import type { NextPageWithLayout } from 'types'
 
 const ProjectSettings: NextPageWithLayout = () => {
+  const { ref } = useParams()
   const { data: project } = useSelectedProjectQuery()
   const { data: selectedOrganization } = useSelectedOrganizationQuery()
 
@@ -25,11 +26,13 @@ const ProjectSettings: NextPageWithLayout = () => {
     useIsFeatureEnabled(['projects:transfer', 'project_settings:custom_domains'])
   const router = useRouter()
 
-  useEffect(() => {
-    if (!IS_PLATFORM) {
-      router.push(`/project/default/settings/log-drains`)
-    }
-  }, [router])
+  // Note: Removed automatic redirect to log-drains for self-hosted environments
+  // to allow access to project deletion functionality
+  // useEffect(() => {
+  //   if (!IS_PLATFORM) {
+  //     router.push(`/project/${ref}/settings/log-drains`)
+  //   }
+  // }, [router, ref])
 
   const { data: subscription } = useOrgSubscriptionQuery({ orgSlug: selectedOrganization?.slug })
   const hasHipaaAddon = subscriptionHasHipaaAddon(subscription)

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useCallback, useMemo, useState } from 'react'
+import { useParams } from 'common'
 
 import {
   LogsTableName,
@@ -52,6 +53,11 @@ function useLogsPreview({
   filterOverride?: Filters
   limit?: number
 }): LogsPreviewHook {
+  // Get current project context for data isolation
+  const { ref: currentProjectRef } = useParams()
+  
+  // Use current project ref if available, fallback to provided projectRef
+  const isolatedProjectRef = currentProjectRef || projectRef
   const defaultHelper = getDefaultHelper(PREVIEWER_DATEPICKER_HELPERS)
   const [latestRefresh, setLatestRefresh] = useState(new Date().toISOString())
 
@@ -89,7 +95,7 @@ function useLogsPreview({
     }
   }, [timestampStart, timestampEnd, table, mergedFilters, limit])
 
-  const queryKey = useMemo(() => ['projects', projectRef, 'logs', params], [projectRef, params])
+  const queryKey = useMemo(() => ['projects', isolatedProjectRef, 'logs', params], [isolatedProjectRef, params])
 
   const {
     data,
@@ -105,7 +111,7 @@ function useLogsPreview({
     queryFn: async ({ signal, pageParam }) => {
       const { data, error } = await get(`/platform/projects/{ref}/analytics/endpoints/logs.all`, {
         params: {
-          path: { ref: projectRef },
+          path: { ref: isolatedProjectRef },
           query: {
             ...params,
             iso_timestamp_end: pageParam || params.iso_timestamp_end,
@@ -153,10 +159,10 @@ function useLogsPreview({
   const countQueryKey = useMemo(
     () => [
       'projects',
-      projectRef,
+      isolatedProjectRef,
       'logs-count',
       {
-        projectRef,
+        projectRef: isolatedProjectRef,
         sql: countQuerySql,
         iso_timestamp_start: latestRefresh,
         iso_timestamp_end: timestampEnd,
@@ -164,7 +170,7 @@ function useLogsPreview({
         mergedFilters,
       },
     ],
-    [projectRef, countQuerySql, latestRefresh, timestampEnd, table, mergedFilters]
+    [isolatedProjectRef, countQuerySql, latestRefresh, timestampEnd, table, mergedFilters]
   )
 
   const { data: countData } = useQuery({
@@ -172,7 +178,7 @@ function useLogsPreview({
     queryFn: async ({ signal }) => {
       const { data, error } = await get(`/platform/projects/{ref}/analytics/endpoints/logs.all`, {
         params: {
-          path: { ref: projectRef },
+          path: { ref: isolatedProjectRef },
           query: {
             sql: countQuerySql,
             iso_timestamp_start: latestRefresh,
@@ -201,16 +207,16 @@ function useLogsPreview({
   const chartQueryKey = useMemo(
     () => [
       'projects',
-      projectRef,
+      isolatedProjectRef,
       'logs-chart',
       {
-        projectRef,
+        projectRef: isolatedProjectRef,
         sql: chartQuery,
         iso_timestamp_start: timestampStart,
         iso_timestamp_end: timestampEnd,
       },
     ],
-    [projectRef, chartQuery, timestampStart, timestampEnd]
+    [isolatedProjectRef, chartQuery, timestampStart, timestampEnd]
   )
 
   const { data: eventChartResponse, refetch: refreshEventChart } = useQuery({
@@ -218,7 +224,7 @@ function useLogsPreview({
     queryFn: async ({ signal }) => {
       const { data, error } = await get(`/platform/projects/{ref}/analytics/endpoints/logs.all`, {
         params: {
-          path: { ref: projectRef },
+          path: { ref: isolatedProjectRef },
           query: {
             iso_timestamp_start: timestampStart,
             iso_timestamp_end: timestampEnd,

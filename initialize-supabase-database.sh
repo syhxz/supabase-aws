@@ -384,6 +384,17 @@ if [ "$SKIP_SCHEMAS" = false ]; then
 
     if execute_sql "CREATE SCHEMA IF NOT EXISTS _analytics;" "_supabase" "Create _analytics schema"; then
         execute_sql "ALTER SCHEMA _analytics OWNER TO $TARGET_USER;" "_supabase" "Set _analytics owner"
+<<<<<<< HEAD
+=======
+        
+        # Grant permissions to supabase_admin for Logflare
+        print_step "Granting permissions to supabase_admin for Logflare..."
+        execute_sql "GRANT ALL ON SCHEMA _analytics TO supabase_admin;" "_supabase" "Grant schema permissions to supabase_admin"
+        execute_sql "GRANT ALL ON ALL TABLES IN SCHEMA _analytics TO supabase_admin;" "_supabase" "Grant table permissions to supabase_admin"
+        execute_sql "GRANT ALL ON ALL SEQUENCES IN SCHEMA _analytics TO supabase_admin;" "_supabase" "Grant sequence permissions to supabase_admin"
+        execute_sql "ALTER DEFAULT PRIVILEGES IN SCHEMA _analytics GRANT ALL ON TABLES TO supabase_admin;" "_supabase" "Grant default table privileges"
+        execute_sql "ALTER DEFAULT PRIVILEGES IN SCHEMA _analytics GRANT ALL ON SEQUENCES TO supabase_admin;" "_supabase" "Grant default sequence privileges"
+>>>>>>> 7016d83 (Update supabase codebase with new features and improvements)
 
         # Initialize analytics tables if SQL file exists and not skipping tables
         if [ "$SKIP_TABLES" = false ] && [ -f "apps/studio/lib/project-initialization/sql/analytics-schema.sql" ]; then
@@ -397,7 +408,7 @@ if [ "$SKIP_SCHEMAS" = false ]; then
             if [ "$SKIP_TABLES" = true ]; then
                 print_success "Created _analytics schema in _supabase (skipped table creation)"
             else
-                print_success "Created _analytics schema in _supabase (tables will be created by Analytics service)"
+                print_success "Created _analytics schema in _supabase (tables will be created by Logflare on first start)"
             fi
         fi
     else
@@ -432,6 +443,29 @@ if [ "$SKIP_SCHEMAS" = false ]; then
     fi
     execute_sql "CREATE SCHEMA IF NOT EXISTS auth;" "postgres" "Create auth schema"
 
+<<<<<<< HEAD
+=======
+    # Ensure auth.schema_migrations table exists to prevent GoTrue migration issues
+    print_step "Creating auth.schema_migrations table..."
+    execute_sql "CREATE TABLE IF NOT EXISTS auth.schema_migrations (
+        version character varying(255) NOT NULL PRIMARY KEY,
+        inserted_at timestamp(0) without time zone DEFAULT NOW()
+    );" "postgres" "Create auth schema_migrations table"
+    execute_sql "COMMENT ON TABLE auth.schema_migrations IS 'Auth: Manages updates to the auth system.';" "postgres" "Add comment to auth schema_migrations"
+
+    # Apply GoTrue migration fix to prevent known migration issues
+    print_step "Applying GoTrue migration fixes..."
+    if [ -f "scripts/fix-gotrue-migration.sql" ]; then
+        if execute_sql_file "scripts/fix-gotrue-migration.sql" "postgres" "Apply GoTrue migration fixes"; then
+            print_success "Applied GoTrue migration fixes"
+        else
+            print_warning "Failed to apply GoTrue migration fixes (may not be needed)"
+        fi
+    else
+        print_warning "GoTrue migration fix file not found, skipping"
+    fi
+
+>>>>>>> 7016d83 (Update supabase codebase with new features and improvements)
     # Initialize auth tables if SQL file exists and not skipping tables
     if [ "$SKIP_TABLES" = false ] && [ -f "apps/studio/lib/project-initialization/sql/auth-schema.sql" ]; then
         if execute_sql_file "apps/studio/lib/project-initialization/sql/auth-schema.sql" "postgres" "Initialize auth tables"; then

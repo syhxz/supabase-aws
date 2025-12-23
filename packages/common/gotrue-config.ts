@@ -61,16 +61,46 @@ function getServerSideGoTrueUrl(): string {
     return 'http://kong:8000/auth/v1'
   }
   
+  // Check for explicit server-side configuration first
+  const explicitUrl = process.env.NEXT_PUBLIC_GOTRUE_URL
+  if (explicitUrl) {
+    return explicitUrl
+  }
+  
+  // Check for derived URLs from Supabase base URLs
+  const publicUrl = process.env.SUPABASE_PUBLIC_URL || process.env.SUPABASE_URL
+  if (publicUrl) {
+    const derived = deriveGoTrueUrl(publicUrl)
+    if (derived) {
+      return derived
+    }
+  }
+  
   // Default for local development server-side
-  return 'http://127.0.0.1:54321/auth/v1'
+  return 'http://localhost:8000/auth/v1'
 }
 
 /**
  * Get client-side appropriate GoTrue URL (external address)
  */
 function getClientSideGoTrueUrl(): string {
-  // Client-side always uses external addresses (localhost for development)
-  return 'http://127.0.0.1:54321/auth/v1'
+  // Check for explicit client-side configuration first
+  const explicitUrl = process.env.NEXT_PUBLIC_GOTRUE_URL
+  if (explicitUrl) {
+    return explicitUrl
+  }
+  
+  // Check for derived URLs from Supabase base URLs
+  const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_PUBLIC_URL
+  if (publicUrl) {
+    const derived = deriveGoTrueUrl(publicUrl)
+    if (derived) {
+      return derived
+    }
+  }
+  
+  // Fallback to localhost for development
+  return 'http://localhost:8000/auth/v1'
 }
 
 /**

@@ -51,10 +51,11 @@ serve(async (req: Request) => {
     }
   }
 
+  // Enhanced path resolution for multi-level directories
   const url = new URL(req.url)
   const { pathname } = url
-  const path_parts = pathname.split('/')
-  const service_name = path_parts[1]
+  const path_parts = pathname.split('/').filter(p => p !== '')
+  const service_name = path_parts.join('/')  // Supports multi-level: "api/users"
 
   if (!service_name || service_name === '') {
     const error = { msg: 'missing function name in request' }
@@ -64,8 +65,17 @@ serve(async (req: Request) => {
     })
   }
 
+  // Validate path doesn't contain dangerous characters
+  if (service_name.includes('..') || service_name.includes('~')) {
+    const error = { msg: 'invalid function path' }
+    return new Response(JSON.stringify(error), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   const servicePath = `/home/deno/functions/${service_name}`
-  console.error(`serving the request with ${servicePath}`)
+  console.error(`serving the request with ${servicePath} (multi-level path: ${service_name})`)
 
   const memoryLimitMb = 150
   const workerTimeoutMs = 1 * 60 * 1000

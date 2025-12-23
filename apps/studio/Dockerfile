@@ -70,6 +70,12 @@ ARG NEXT_PUBLIC_ENVIRONMENT=development
 ARG NEXT_PUBLIC_GOTRUE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+# hCaptcha configuration variables
+ARG NEXT_PUBLIC_HCAPTCHA_SITE_KEY
+
+# Organization features control variables
+ARG NEXT_PUBLIC_ENABLE_ORG_FEATURES=false
+
 # Set environment variables from build arguments
 # ENVIRONMENT takes highest priority over NODE_ENV for environment detection
 ENV ENVIRONMENT=${ENVIRONMENT}
@@ -82,6 +88,12 @@ ENV NEXT_PUBLIC_ENVIRONMENT=${NEXT_PUBLIC_ENVIRONMENT}
 # These variables are embedded in the client-side code during build
 ENV NEXT_PUBLIC_GOTRUE_URL=${NEXT_PUBLIC_GOTRUE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+
+# Set hCaptcha environment variables from build arguments
+ENV NEXT_PUBLIC_HCAPTCHA_SITE_KEY=${NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+
+# Set organization features control environment variables from build arguments
+ENV NEXT_PUBLIC_ENABLE_ORG_FEATURES=${NEXT_PUBLIC_ENABLE_ORG_FEATURES}
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 

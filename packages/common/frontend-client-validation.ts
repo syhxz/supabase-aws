@@ -101,7 +101,7 @@ export function getFrontendClientUrls(): {
     { source: 'NEXT_PUBLIC_SUPABASE_URL', value: process.env.NEXT_PUBLIC_SUPABASE_URL, priority: 1 },
     { source: 'SUPABASE_PUBLIC_URL', value: process.env.SUPABASE_PUBLIC_URL, priority: 2 },
     { source: 'SUPABASE_URL', value: process.env.SUPABASE_URL, priority: 3 },
-    { source: 'hardcoded-localhost', value: 'http://127.0.0.1:54321', priority: 4 },
+    { source: 'hardcoded-localhost', value: 'http://localhost:8000', priority: 4 },
   ]
 
   // Priority order for GoTrue URL
@@ -119,7 +119,7 @@ export function getFrontendClientUrls(): {
 
   // Select Supabase URL with highest priority
   const selectedSupabaseSource = supabaseUrlSources.find(source => source.value)
-  const supabaseUrl = selectedSupabaseSource?.value || 'http://127.0.0.1:54321'
+  const supabaseUrl = selectedSupabaseSource?.value || 'http://localhost:8000'
 
   // Select GoTrue URL with highest priority
   let gotrueUrl: string | undefined

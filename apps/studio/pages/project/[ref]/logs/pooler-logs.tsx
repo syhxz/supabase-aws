@@ -1,6 +1,6 @@
 import { useParams } from 'common'
 import { LogsTableName } from 'components/interfaces/Settings/Logs/Logs.constants'
-import { LogsPreviewer } from 'components/interfaces/Settings/Logs/LogsPreviewer'
+import { ProjectIsolatedLogsPreviewer } from 'components/interfaces/Settings/Logs/ProjectIsolatedLogsPreviewer'
 import DefaultLayout from 'components/layouts/DefaultLayout'
 import LogsLayout from 'components/layouts/LogsLayout/LogsLayout'
 import { useSupavisorConfigurationQuery } from 'data/database/supavisor-configuration-query'
@@ -22,8 +22,7 @@ export const LogPage: NextPageWithLayout = () => {
   if (isLoading) return <LogoLoader />
 
   return (
-    <LogsPreviewer
-      projectRef={ref as string}
+    <ProjectIsolatedLogsPreviewer
       condensedLayout={true}
       tableName={LogsTableName.SUPAVISOR}
       queryType={'supavisor'}

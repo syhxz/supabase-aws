@@ -24,7 +24,7 @@ export async function getInvoices(
   })
 
   if (error) handleError(error)
-  return data
+  return data?.data || []
 }
 
 export type InvoicesData = Awaited<ReturnType<typeof getInvoices>>

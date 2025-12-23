@@ -29,7 +29,7 @@ export async function getOrganizationPaymentMethods(
   })
 
   if (error) handleError(error)
-  return data
+  return data || { data: [], total: 0 }
 }
 
 export type OrganizationPaymentMethodsData = Awaited<

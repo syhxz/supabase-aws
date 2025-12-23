@@ -16,6 +16,8 @@ extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
 # for accidental or malicious requests.
 max_rows = 1000
+# Rate limiting for API requests (requests per minute per IP)
+max_requests_per_minute = 100
 
 [remotes.prod.api]
 schemas = ["public", "content", "storage", "graphql_public"]
@@ -41,9 +43,25 @@ port = 54324
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
+# Public bucket (no authentication required)
 [storage.buckets.fonts]
 public = true
 objects_path = "buckets/fonts"
+
+# Private buckets (authentication required)
+[storage.buckets.user_avatars]
+public = false
+file_size_limit = "5MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/webp"]
+
+[storage.buckets.user_documents]
+public = false
+file_size_limit = "50MiB"
+allowed_mime_types = ["application/pdf", "text/plain", "application/msword"]
+
+[storage.buckets.private_files]
+public = false
+file_size_limit = "100MiB"
 
 [auth]
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
@@ -58,17 +76,23 @@ additional_redirect_urls = [
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 seconds (one
 # week).
 jwt_expiry = 3600
-# Allow/disallow new user signups to your project.
-enable_signup = true
+# Disable public user signups for security (admin-only registration)
+enable_signup = false
+# Require email confirmation for all new users
+enable_confirmations = true
+# Enable manual user linking (admin controlled)
+enable_manual_linking = false
 
 [auth.email]
-# Allow/disallow new user signups via email to your project.
-enable_signup = true
+# Disable email signups for security (admin-only registration)
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
-# If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# Require users to confirm their email address before signing in
+enable_confirmations = true
+# Secure email templates
+secure_email_change_enabled = true
 
 # Uncomment the following to use gh oAuth app locally with your own test app
 # to use env vars locally, run > `source ./supabase/.env && supabase [command...]`
@@ -98,4 +122,7 @@ redirect_uri = ""
 url = ""
 
 [functions.search-embeddings]
-verify_jwt = false
+verify_jwt = true
+
+# Enhanced Edge Functions - Multi-level directory support - JWT Authentication Enabled
+# Test functions have been cleaned up - only production functions remain

@@ -1,11 +1,13 @@
 /**
  * Credential Monitoring Dashboard Component
  * Displays credential usage patterns, health status, and system metrics
+ * Updated to use project-isolated monitoring data
  */
 
 import { useState, useEffect } from 'react'
 import { AlertCircle, CheckCircle, AlertTriangle, RefreshCw, Download, Eye, EyeOff } from 'lucide-react'
 import { Button, Card, Badge, Alert_Shadcn_, AlertDescription_Shadcn_, AlertTitle_Shadcn_ } from 'ui'
+import { useMonitoringData } from '../../../../hooks/analytics/useMonitoringData'
 import type { 
   HealthCheckResult, 
   CredentialReport, 
@@ -30,54 +32,66 @@ interface DashboardMetrics {
 }
 
 export function CredentialMonitoringDashboard({ projectRef }: CredentialMonitoringDashboardProps) {
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
+  const [showProjectDetails, setShowProjectDetails] = useState(false)
+  
+  // Use project-isolated monitoring data hook
+  const { 
+    data: monitoringResponse, 
+    isLoading, 
+    error: queryError, 
+    refetch 
+  } = useMonitoringData({
+    limit: 100
+  })
+
+  const [legacyMetrics, setLegacyMetrics] = useState<DashboardMetrics>({
     healthCheck: null,
     fallbackStats: null,
     projectStatuses: [],
     auditStats: null,
     lastUpdated: null
   })
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [showProjectDetails, setShowProjectDetails] = useState(false)
 
-  const fetchMetrics = async () => {
+  // Legacy fetch for non-monitoring data (health checks, etc.)
+  const fetchLegacyMetrics = async () => {
     try {
-      setError(null)
-      
-      // Fetch health check
+      // Fetch health check (this remains global for now)
       const healthResponse = await fetch('/api/platform/credential-monitoring/health')
       if (!healthResponse.ok) {
         throw new Error(`Health check failed: ${healthResponse.statusText}`)
       }
       const healthCheck = await healthResponse.json()
 
-      // Fetch stats
+      // Fetch stats (this remains global for now)
       const statsResponse = await fetch('/api/platform/credential-monitoring/stats')
       if (!statsResponse.ok) {
         throw new Error(`Stats fetch failed: ${statsResponse.statusText}`)
       }
       const statsData = await statsResponse.json()
 
-      setMetrics({
+      setLegacyMetrics({
         healthCheck,
         fallbackStats: statsData.fallbackUsage,
-        projectStatuses: [], // Will be populated from health check data
+        projectStatuses: [],
         auditStats: statsData.auditLog,
         lastUpdated: new Date().toISOString()
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch metrics')
-    } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
+      console.error('Failed to fetch legacy metrics:', err)
     }
   }
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await fetchMetrics()
+    try {
+      await Promise.all([
+        refetch(),
+        fetchLegacyMetrics()
+      ])
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   const downloadReport = async () => {
@@ -103,10 +117,10 @@ export function CredentialMonitoringDashboard({ projectRef }: CredentialMonitori
   }
 
   useEffect(() => {
-    fetchMetrics()
+    fetchLegacyMetrics()
     
-    // Set up auto-refresh every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000)
+    // Set up auto-refresh every 30 seconds for legacy metrics
+    const interval = setInterval(fetchLegacyMetrics, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -135,6 +149,9 @@ export function CredentialMonitoringDashboard({ projectRef }: CredentialMonitori
         return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
+
+  const error = queryError?.message || null
+  const monitoringData = monitoringResponse?.data || []
 
   if (isLoading) {
     return (
@@ -179,7 +196,7 @@ export function CredentialMonitoringDashboard({ projectRef }: CredentialMonitori
     )
   }
 
-  const { healthCheck, fallbackStats, auditStats } = metrics
+  const { healthCheck, fallbackStats, auditStats } = legacyMetrics
 
   return (
     <div className="space-y-6">
@@ -357,10 +374,32 @@ export function CredentialMonitoringDashboard({ projectRef }: CredentialMonitori
         </Card>
       )}
 
+      {/* Project Monitoring Data */}
+      {monitoringData.length > 0 && (
+        <Card className="p-4">
+          <h4 className="font-medium mb-4">Project Monitoring Data</h4>
+          <div className="space-y-2">
+            {monitoringData.slice(0, 10).map((metric, index) => (
+              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <div>
+                  <span className="font-mono text-sm">{metric.metric_name}</span>
+                  <span className="ml-2 text-sm text-gray-600">
+                    Value: {metric.metric_value}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">
+                  {new Date(metric.timestamp).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Last Updated */}
-      {metrics.lastUpdated && (
+      {legacyMetrics.lastUpdated && (
         <p className="text-xs text-gray-500 text-center">
-          Last updated: {new Date(metrics.lastUpdated).toLocaleString()}
+          Last updated: {new Date(legacyMetrics.lastUpdated).toLocaleString()}
         </p>
       )}
     </div>

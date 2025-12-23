@@ -31,6 +31,10 @@ services:
         # Requirements 1.1, 1.2, 2.1, 2.2: Pass Supabase configuration as build arguments
         - NEXT_PUBLIC_GOTRUE_URL=${NEXT_PUBLIC_GOTRUE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        # hCaptcha configuration
+        - NEXT_PUBLIC_HCAPTCHA_SITE_KEY=${NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+        # Organization features control
+        - NEXT_PUBLIC_ENABLE_ORG_FEATURES=${NEXT_PUBLIC_ENABLE_ORG_FEATURES:-false}
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -84,7 +88,8 @@ services:
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
       
       # GoTrue URL configuration
-      NEXT_PUBLIC_GOTRUE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}/auth/v1
+      NEXT_PUBLIC_GOTRUE_URL: ${NEXT_PUBLIC_GOTRUE_URL:-http://localhost:8000/auth/v1}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:8000}
       
       # Authentication keys
       SUPABASE_ANON_KEY: ${ANON_KEY}
@@ -112,6 +117,13 @@ services:
       NEXT_PUBLIC_SITE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
       NEXT_PUBLIC_API_URL: ${API_EXTERNAL_URL:-http://localhost:8000}/api
       DOCKER_SOCKET_LOCATION: /var/run/docker.sock
+
+      # hCaptcha configuration
+      NEXT_PUBLIC_HCAPTCHA_SITE_KEY: ${NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+      HCAPTCHA_SECRET_KEY: ${HCAPTCHA_SECRET_KEY}
+
+      # Organization features control
+      NEXT_PUBLIC_ENABLE_ORG_FEATURES: ${NEXT_PUBLIC_ENABLE_ORG_FEATURES:-false}
 
   kong:
     container_name: supabase-kong
@@ -165,6 +177,9 @@ services:
       db:
         condition: service_healthy
         required: false
+    # Override the default command to skip migrations if needed
+    # Uncomment the following lines to disable migrations completely
+    # command: ["gotrue", "--skip-migrations"]
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -172,6 +187,11 @@ services:
 
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      
+      # Migration control - HARD DISABLE migrations
+      GOTRUE_DB_MIGRATE: false
+      GOTRUE_DB_MIGRATIONS_DISABLE: true
+      DISABLE_MIGRATIONS: true
 
       GOTRUE_SITE_URL: ${SITE_URL}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}

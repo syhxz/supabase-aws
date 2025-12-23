@@ -39,7 +39,7 @@ const OrganizationsPage: NextPageWithLayout = () => {
       ? organizations
       : organizations?.filter(
           (x) => x.name.toLowerCase().includes(search) || x.slug.toLowerCase().includes(search)
-        )
+        ) || []
 
   useEffect(() => {
     // If there are no organizations, force the user to create one

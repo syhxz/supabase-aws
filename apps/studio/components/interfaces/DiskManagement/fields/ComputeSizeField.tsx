@@ -284,7 +284,7 @@ export function ComputeSizeField({ form, disabled }: ComputeSizeFieldProps) {
                               <TooltipContent side="bottom" className="w-64 text-center">
                                 Project has PITR enabled which requires a minimum of Small compute.
                                 Please{' '}
-                                <InlineLink href="/project/_/settings/addons?panel=pitr">
+                                <InlineLink href={`/project/${ref}/settings/addons?panel=pitr`}>
                                   disable PITR
                                 </InlineLink>{' '}
                                 first before selecting Micro

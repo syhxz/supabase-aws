@@ -5,12 +5,30 @@ import OrganizationLayout from 'components/layouts/OrganizationLayout'
 import OrganizationSettingsLayout from 'components/layouts/ProjectLayout/OrganizationSettingsLayout'
 import { UnknownInterface } from 'components/ui/UnknownInterface'
 import { useIsFeatureEnabled } from 'hooks/misc/useIsFeatureEnabled'
+import { useRouter } from 'next/router'
+import { useEffect } from 'react'
 import type { NextPageWithLayout } from 'types'
+import { LogoLoader } from 'ui'
 
 const OrgDocuments: NextPageWithLayout = () => {
   const { slug } = useParams()
+  const router = useRouter()
 
   const showLegalDocuments = useIsFeatureEnabled('organization:show_legal_documents')
+
+  // Temporarily disable Organization Settings feature - redirect to projects page
+  // TODO: Control via NEXT_PUBLIC_ENABLE_ORG_FEATURES environment variable in the future
+  const enableOrgFeatures = process.env.NEXT_PUBLIC_ENABLE_ORG_FEATURES === 'true'
+
+  useEffect(() => {
+    if (!enableOrgFeatures && slug) {
+      router.replace(`/org/${slug}`)
+    }
+  }, [enableOrgFeatures, router, slug])
+
+  if (!enableOrgFeatures) {
+    return <LogoLoader />
+  }
 
   if (!showLegalDocuments) {
     return <UnknownInterface urlBack={`/org/${slug}`} />

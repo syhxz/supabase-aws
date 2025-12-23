@@ -384,6 +384,10 @@ const OrganizationLinks = () => {
   const disableAccessMfa = org?.organization_requires_mfa && !isUserMFAEnabled
 
   const showBilling = useIsFeatureEnabled('billing:all')
+  
+  // Temporarily disable organization features - can be re-enabled via environment variable
+  // TODO: Control via NEXT_PUBLIC_ENABLE_ORG_FEATURES environment variable in the future
+  const enableOrgFeatures = process.env.NEXT_PUBLIC_ENABLE_ORG_FEATURES === 'true'
 
   const activeRoute = router.pathname.split('/')[3]
 
@@ -394,25 +398,28 @@ const OrganizationLinks = () => {
       key: 'projects',
       icon: <Boxes size={ICON_SIZE} strokeWidth={ICON_STROKE_WIDTH} />,
     },
-    {
+    // Temporarily disable Team feature
+    ...(enableOrgFeatures ? [{
       label: 'Team',
       href: `/org/${organizationSlug}/team`,
       key: 'team',
       icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE_WIDTH} />,
-    },
+    }] : []),
     {
       label: 'Integrations',
       href: `/org/${organizationSlug}/integrations`,
       key: 'integrations',
       icon: <Blocks size={ICON_SIZE} strokeWidth={ICON_STROKE_WIDTH} />,
     },
-    {
+    // Temporarily disable Usage feature
+    ...(enableOrgFeatures ? [{
       label: 'Usage',
       href: `/org/${organizationSlug}/usage`,
       key: 'usage',
       icon: <ChartArea size={ICON_SIZE} strokeWidth={ICON_STROKE_WIDTH} />,
-    },
-    ...(showBilling
+    }] : []),
+    // Temporarily disable Billing feature
+    ...(showBilling && enableOrgFeatures
       ? [
           {
             label: 'Billing',
@@ -422,12 +429,13 @@ const OrganizationLinks = () => {
           },
         ]
       : []),
-    {
+    // Temporarily disable Organization Settings feature
+    ...(enableOrgFeatures ? [{
       label: 'Organization settings',
       href: `/org/${organizationSlug}/general`,
       key: 'settings',
       icon: <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE_WIDTH} />,
-    },
+    }] : []),
   ]
 
   if (!organizationSlug) return null
