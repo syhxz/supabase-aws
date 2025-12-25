@@ -42,6 +42,16 @@ const SignInLayout = ({
 
   // This useEffect redirects the user to MFA if they're already halfway signed in
   useEffect(() => {
+    // Wait for router to be ready before checking query params
+    if (!router.isReady) {
+      return
+    }
+
+    // Skip auto-redirect if user just logged out
+    if (router.query.logout === 'true') {
+      return
+    }
+
     auth
       .initialize()
       .then(async ({ error }) => {
@@ -76,7 +86,7 @@ const SignInLayout = ({
         }
       })
       .catch(() => {}) // catch all errors thrown by auth methods
-  }, [])
+  }, [router.isReady, router.query.logout])
 
   const [quote, setQuote] = useState<{
     text: string
