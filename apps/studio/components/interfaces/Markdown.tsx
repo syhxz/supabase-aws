@@ -1,0 +1,27 @@
+import { InlineLink } from 'components/ui/InlineLink'
+import { ReactMarkdown, ReactMarkdownOptions } from 'react-markdown/lib/react-markdown'
+import remarkGfm from 'remark-gfm'
+
+import { cn } from 'ui'
+
+interface Props extends Omit<ReactMarkdownOptions, 'children' | 'node'> {
+  className?: string
+  content: string
+  extLinks?: boolean
+}
+
+export const Markdown = ({ className, content = '', extLinks = false, ...props }: Props) => {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h3: ({ children }) => <h3 className="mb-1">{children}</h3>,
+        a: ({ href, children }) => <InlineLink href={href ?? '/'}>{children}</InlineLink>,
+      }}
+      {...props}
+      className={cn('prose text-sm', className)}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+}

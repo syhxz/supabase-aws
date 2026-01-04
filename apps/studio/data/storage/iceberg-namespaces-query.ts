@@ -1,0 +1,75 @@
+import { useQuery } from '@tanstack/react-query'
+
+import { getOrRefreshTemporaryApiKey } from 'data/api-keys/temp-api-keys-utils'
+import { constructHeaders, fetchHandler, handleError } from 'data/fetchers'
+import type { ResponseError, UseCustomQueryOptions } from 'types'
+import { storageKeys } from './keys'
+
+type GetNamespacesVariables = {
+  catalogUri: string
+  warehouse: string
+  projectRef?: string
+}
+
+const errorPrefix = 'Failed to retrieve Iceberg namespaces'
+
+async function getNamespaces({ projectRef, catalogUri, warehouse }: GetNamespacesVariables) {
+  try {
+    if (!projectRef) throw new Error(`${errorPrefix}: projectRef is required`)
+
+    const tempApiKeyObj = await getOrRefreshTemporaryApiKey(projectRef)
+    const tempApiKey = tempApiKeyObj.apiKey
+
+    let headers = new Headers()
+    headers = await constructHeaders({
+      'Content-Type': 'application/json',
+      apikey: tempApiKey,
+    })
+    headers.delete('Authorization')
+
+    const url = `${catalogUri}/v1/${warehouse}/namespaces`.replaceAll(/(?<!:)\/\//g, '/')
+
+    const response = await fetchHandler(url, { headers, method: 'GET' })
+    const result = await response.json()
+    if (result.error) {
+      if (result.error.message) throw new Error(`${errorPrefix}: ${result.error.message}`)
+      else throw new Error(errorPrefix)
+    }
+
+    const r = result as { namespaces: string[][] }
+    return r.namespaces.flat()
+  } catch (error) {
+    handleError(error)
+  }
+}
+
+type IcebergNamespacesData = Awaited<ReturnType<typeof getNamespaces>>
+
+export type IcebergNamespacesError = ResponseError
+
+export const useIcebergNamespacesQuery = <TData = IcebergNamespacesData>(
+  params: GetNamespacesVariables,
+  {
+    enabled = true,
+    ...options
+  }: UseCustomQueryOptions<IcebergNamespacesData, IcebergNamespacesError, TData> = {}
+) => {
+  const { projectRef, catalogUri, warehouse } = params
+
+  return useQuery<IcebergNamespacesData, IcebergNamespacesError, TData>({
+    queryKey: storageKeys.icebergNamespaces({
+      projectRef,
+      warehouse,
+      catalog: catalogUri,
+    }),
+    queryFn: () => getNamespaces({ ...params }),
+    enabled:
+      options &&
+      typeof projectRef !== 'undefined' &&
+      typeof catalogUri !== 'undefined' &&
+      catalogUri.length > 0 &&
+      typeof warehouse !== 'undefined' &&
+      warehouse.length > 0,
+    ...options,
+  })
+}

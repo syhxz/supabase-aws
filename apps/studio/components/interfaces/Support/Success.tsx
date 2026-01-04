@@ -1,0 +1,103 @@
+import { Check, ExternalLink, Mail, Search } from 'lucide-react'
+import Link from 'next/link'
+import { useState } from 'react'
+
+import { useProjectDetailQuery } from 'data/projects/project-detail-query'
+import { useProfile } from 'lib/profile'
+import { Button, Input, Separator } from 'ui'
+import { CATEGORY_OPTIONS } from './Support.constants'
+import { NO_PROJECT_MARKER } from './SupportForm.utils'
+
+interface SuccessProps {
+  sentCategory?: string
+  selectedProject?: string
+}
+
+export const Success = ({
+  sentCategory = '',
+  selectedProject = NO_PROJECT_MARKER,
+}: SuccessProps) => {
+  const { profile } = useProfile()
+  const respondToEmail = profile?.primary_email ?? 'your email'
+
+  const { data: project } = useProjectDetailQuery(
+    { ref: selectedProject },
+    { enabled: selectedProject !== NO_PROJECT_MARKER }
+  )
+  const projectName = project ? project.name : 'No specific project'
+
+  const categoriesToShowAdditionalResources = ['Problem', 'Unresponsive', 'Performance']
+
+  const selectedCategory = CATEGORY_OPTIONS.find((option) => option.value === sentCategory)
+  const [searchValue, setSearchValue] = useState<string>(selectedCategory?.query ?? '')
+
+  return (
+    <div className="mt-10 w-[620px] flex flex-col items-center space-y-4">
+      <div className="relative">
+        <Mail strokeWidth={1.5} size={60} className="text-brand" />
+        <div className="h-6 w-6 rounded-full bg-brand absolute bottom-1 -right-1.5 flex items-center justify-center">
+          <Check strokeWidth={4} size={18} />
+        </div>
+      </div>
+      <div className="flex items-center flex-col space-y-2 text-center p-4">
+        <h3 className="text-xl">Support request successfully sent!</h3>
+        <p className="text-sm text-foreground-light">
+          We will reach out to you at <span className="text-foreground">{respondToEmail}</span>.
+        </p>
+        {selectedProject !== NO_PROJECT_MARKER && (
+          <p className="text-sm text-foreground-light">
+            Your ticket has been logged for the project{' '}
+            <span className="text-foreground">{projectName}</span>, reference ID:{' '}
+            <span className="text-foreground">{selectedProject}</span>.
+          </p>
+        )}
+      </div>
+      {categoriesToShowAdditionalResources.includes(sentCategory) && (
+        <>
+          <div className="!my-10 w-full">
+            <Separator />
+          </div>
+          <div className="flex flex-col items-center px-12 space-y-2 text-center">
+            <p>In the meantime, tap into our community</p>
+            <p className="text-sm text-foreground-light">
+              Find the answers you need with fellow developers building with Supabase by joining our
+              GitHub discussions or on Discord - build the next best thing together
+            </p>
+          </div>
+          <div className="w-full px-12 !mt-8">
+            <Input
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              icon={<Search size={16} strokeWidth={1.5} />}
+              actions={[
+                <Button
+                  asChild
+                  key="search"
+                  className="mr-1"
+                  type="default"
+                  icon={<ExternalLink />}
+                >
+                  <Link
+                    href={`https://github.com/supabase/supabase/discussions?discussions_q=${searchValue}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Search on GitHub discussions
+                  </Link>
+                </Button>,
+              ]}
+            />
+          </div>
+        </>
+      )}
+      <div className="!mt-10 w-full">
+        <Separator />
+      </div>
+      <div className="w-full pb-4 px-4 flex items-center justify-end">
+        <Link href="/">
+          <Button>Go back</Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
