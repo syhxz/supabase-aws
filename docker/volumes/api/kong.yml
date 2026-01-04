@@ -44,6 +44,35 @@ services:
           - /auth/v1/verify
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
   - name: auth-v1-open-callback
     url: http://auth:9999/callback
     routes:
@@ -53,6 +82,35 @@ services:
           - /auth/v1/callback
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
   - name: auth-v1-open-authorize
     url: http://auth:9999/authorize
     routes:
@@ -62,6 +120,35 @@ services:
           - /auth/v1/authorize
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
   - name: auth-v1-open-signup
     _comment: 'GoTrue Signup: /auth/v1/signup -> http://auth:9999/signup (public access)'
     url: http://auth:9999/signup
@@ -72,6 +159,35 @@ services:
           - /auth/v1/signup
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
   - name: auth-v1-open-token
     _comment: 'GoTrue Token: /auth/v1/token -> http://auth:9999/token (public access for signin and token refresh)'
     url: http://auth:9999/token
@@ -88,6 +204,7 @@ services:
             - "http://127.0.0.1:3000"
             - "http://localhost:8000"
             - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
           methods:
             - GET
             - POST
@@ -128,6 +245,7 @@ services:
             - "http://127.0.0.1:3000"
             - "http://localhost:8000"
             - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
           methods:
             - GET
             - POST
@@ -162,6 +280,35 @@ services:
           - GET
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
 
   ## Auth user route (authenticated with JWT token)
   - name: auth-v1-user
@@ -184,6 +331,7 @@ services:
             - "http://127.0.0.1:3000"
             - "http://localhost:8000"
             - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
           methods:
             - GET
             - POST
@@ -218,6 +366,35 @@ services:
           - /auth/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -239,6 +416,35 @@ services:
           - /rest/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: true
@@ -260,6 +466,35 @@ services:
           - /graphql/v1
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: true
@@ -287,6 +522,35 @@ services:
           - /realtime/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -307,6 +571,35 @@ services:
           - /realtime/v1/api
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -327,6 +620,35 @@ services:
           - /storage/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
 
   ## Edge Functions routes
   - name: functions-v1
@@ -339,6 +661,35 @@ services:
           - /functions/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
 
   ## Analytics routes
   - name: analytics-v1
@@ -424,6 +775,35 @@ services:
           - POST
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
 
   - name: studio-platform-signin
     _comment: 'Studio Platform Signin: /api/platform/signin -> http://studio:3000/api/platform/signin (public access)'
@@ -437,6 +817,35 @@ services:
           - POST
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
 
   ## Studio API routes - catch all /api/* (no authentication required for self-hosted)
   - name: studio-api-all
@@ -449,6 +858,35 @@ services:
           - /api/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
 
   ## Protected Dashboard - catch all remaining routes
   - name: dashboard
@@ -461,6 +899,35 @@ services:
           - /
     plugins:
       - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
+          exposed_headers:
+            - X-Auth-Token
+          credentials: true
+          max_age: 3600
       # Basic auth disabled for open access
       # - name: basic-auth
       #   config:
