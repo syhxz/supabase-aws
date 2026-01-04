@@ -104,6 +104,8 @@ services:
             - Date
             - Authorization
             - X-Requested-With
+            - x-supabase-api-version
+            - apikey
           exposed_headers:
             - X-Auth-Token
           credentials: true
@@ -142,6 +144,8 @@ services:
             - Date
             - Authorization
             - X-Requested-With
+            - x-supabase-api-version
+            - apikey
           exposed_headers:
             - X-Auth-Token
           credentials: true
@@ -196,6 +200,8 @@ services:
             - Date
             - Authorization
             - X-Requested-With
+            - x-supabase-api-version
+            - apikey
           exposed_headers:
             - X-Auth-Token
           credentials: true
