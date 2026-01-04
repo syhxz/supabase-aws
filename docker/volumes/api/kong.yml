@@ -157,6 +157,8 @@ services:
         strip_path: true
         paths:
           - /auth/v1/signup
+        # Ensure this route has higher priority than the generic auth-v1 route
+        regex_priority: 100
     plugins:
       - name: cors
         config:
@@ -196,6 +198,8 @@ services:
         strip_path: true
         paths:
           - /auth/v1/token
+        # Ensure this route has higher priority than the generic auth-v1 route
+        regex_priority: 100
     plugins:
       - name: cors
         config:
@@ -237,6 +241,8 @@ services:
           - /auth/v1/logout
         methods:
           - POST
+        # Ensure this route has higher priority than the generic auth-v1 route
+        regex_priority: 100
     plugins:
       - name: cors
         config:
@@ -278,6 +284,8 @@ services:
           - /auth/v1/health
         methods:
           - GET
+        # Ensure this route has higher priority than the generic auth-v1 route
+        regex_priority: 100
     plugins:
       - name: cors
         config:
