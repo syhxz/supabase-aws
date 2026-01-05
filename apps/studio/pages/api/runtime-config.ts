@@ -123,13 +123,13 @@ import { logConfigurationSource, logConfigurationValidation } from 'common/confi
 /**
  * Determines the current environment based on improved detection logic
  * This function uses the enhanced environment detection that considers:
- * - Explicit ENVIRONMENT variable
+ * - Explicit ENVIRONMENT variable (HIGHEST PRIORITY - never overridden)
  * - NODE_ENV with improved production detection
  * - URL patterns including external IPs and domains
  * - IS_PLATFORM flag
  * - Production indicators (HTTPS, external IPs, domains)
  * 
- * CRITICAL FIX: Override production detection when localhost URLs are present
+ * FIXED: ENVIRONMENT variable now has absolute highest priority and cannot be overridden
  */
 function determineEnvironment(urls?: {
   gotrueUrl?: string
@@ -138,7 +138,20 @@ function determineEnvironment(urls?: {
 }): Environment {
   const envInfo = detectEnvironment(urls)
   
-  // CRITICAL FIX: Check for localhost URLs and override environment if needed
+  // Check if ENVIRONMENT variable is explicitly set - if so, NEVER override it
+  const explicitEnv = (process.env.NEXT_PUBLIC_ENVIRONMENT || process.env.ENVIRONMENT)?.toLowerCase()
+  const isExplicitEnvironment = explicitEnv && ['production', 'development', 'staging'].includes(explicitEnv)
+  
+  if (isExplicitEnvironment) {
+    console.log(`[Runtime Config] ✅ ENVIRONMENT variable explicitly set to: ${explicitEnv}`)
+    console.log(`[Runtime Config] ENVIRONMENT variable has HIGHEST PRIORITY - will not be overridden by URL patterns`)
+    console.log(`[Runtime Config] Detection method: ${envInfo.detectionMethod}`)
+    console.log(`[Runtime Config] Context: ${envInfo.context}`)
+    
+    return envInfo.environment
+  }
+  
+  // Only perform localhost URL override if ENVIRONMENT variable is NOT explicitly set
   const allUrls = [
     urls?.gotrueUrl,
     urls?.supabaseUrl, 
@@ -153,13 +166,14 @@ function determineEnvironment(urls?: {
     localhostPatterns.some((pattern: string) => url.includes(pattern))
   )
   
-  // Override to development if we detect localhost URLs regardless of NODE_ENV
+  // Only override to development if ENVIRONMENT variable is not explicitly set
   if (hasLocalhostUrls && envInfo.environment === 'production') {
-    console.log(`[Runtime Config] ⚠️  ENVIRONMENT OVERRIDE: Detected localhost URLs in production environment`)
+    console.log(`[Runtime Config] ⚠️  LOCALHOST URL OVERRIDE: Detected localhost URLs without explicit ENVIRONMENT variable`)
     console.log(`[Runtime Config] Overriding environment from 'production' to 'development'`)
     console.log(`[Runtime Config] Localhost URLs found: ${allUrls.filter(url => 
       localhostPatterns.some(pattern => url.includes(pattern))
     ).join(', ')}`)
+    console.log(`[Runtime Config] 💡 To prevent this override, set ENVIRONMENT=production explicitly`)
     
     return 'development'
   }
@@ -231,6 +245,10 @@ function validateEnvironmentConfiguration(): {
 
   // Production-specific validation (only warn, don't error)
   if (environment === 'production') {
+    // Check if ENVIRONMENT variable is explicitly set
+    const explicitEnv = (process.env.NEXT_PUBLIC_ENVIRONMENT || process.env.ENVIRONMENT)?.toLowerCase()
+    const isExplicitEnvironment = explicitEnv === 'production'
+    
     // Check for localhost URLs in production environment
     const localhostPatterns = ['localhost', '127.0.0.1', '0.0.0.0', ':8000', ':54321', ':3000']
     const allUrls = [explicitGotrueUrl, publicUrl, internalUrl, apiUrl].filter((url): url is string => Boolean(url))
@@ -239,13 +257,26 @@ function validateEnvironmentConfiguration(): {
     )
     
     if (hasLocalhostUrls) {
-      warnings.push('Production environment detected with localhost URLs. Environment will be overridden to development.')
-      suggestions.push(
-        'For true production deployment, set proper production URLs:',
-        '  - NEXT_PUBLIC_GOTRUE_URL: Production GoTrue URL',
-        '  - SUPABASE_PUBLIC_URL: Production Supabase URL', 
-        '  - API_EXTERNAL_URL: Production API URL'
-      )
+      if (isExplicitEnvironment) {
+        warnings.push('Production environment explicitly set with localhost URLs. This configuration will be respected.')
+        suggestions.push(
+          'You have explicitly set ENVIRONMENT=production with localhost URLs.',
+          'This is unusual but will be respected. Ensure this is intentional.',
+          'For typical production deployment, use external URLs:',
+          '  - NEXT_PUBLIC_GOTRUE_URL: Production GoTrue URL',
+          '  - SUPABASE_PUBLIC_URL: Production Supabase URL', 
+          '  - API_EXTERNAL_URL: Production API URL'
+        )
+      } else {
+        warnings.push('Production environment detected with localhost URLs. Environment will be overridden to development.')
+        suggestions.push(
+          'For true production deployment, set proper production URLs:',
+          '  - NEXT_PUBLIC_GOTRUE_URL: Production GoTrue URL',
+          '  - SUPABASE_PUBLIC_URL: Production Supabase URL', 
+          '  - API_EXTERNAL_URL: Production API URL',
+          'Or set ENVIRONMENT=production to force production mode with localhost URLs.'
+        )
+      }
     }
 
     if (!explicitGotrueUrl && !publicUrl && !internalUrl) {
