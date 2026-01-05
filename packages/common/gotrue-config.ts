@@ -269,6 +269,7 @@ function logUrlResolution(
   // Override environment detection if using localhost URLs
   if (config.url.includes('localhost') || config.url.includes('127.0.0.1')) {
     envInfo = {
+      ...envInfo,
       environment: 'development',
       isProduction: false,
       isDevelopment: true,

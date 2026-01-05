@@ -155,7 +155,9 @@ export function useConsentState() {
   useEffect(() => {
     const listener = () => setState({ ...globalConsentState })
     listeners.add(listener)
-    return () => listeners.delete(listener)
+    return () => {
+      listeners.delete(listener)
+    }
   }, [])
 
   return {
