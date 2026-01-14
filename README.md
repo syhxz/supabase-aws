@@ -2,6 +2,16 @@
 
 A customized version of Supabase optimized for AWS deployment.
 
+## Version 1.1.0 - Latest Release
+
+### Major Updates
+
+- **Edge Functions Support**: Local and S3 storage backends for serverless functions
+- **Data API**: Direct database access with enhanced query capabilities
+- **REST API Refactor**: Improved architecture for better performance and scalability
+- **Enhanced Security**: Advanced user isolation and access control
+- **Configuration Management**: Streamlined setup and deployment process
+
 ## Quick Start
 
 ```bash
@@ -14,10 +24,13 @@ A customized version of Supabase optimized for AWS deployment.
 
 ## Features
 
+- Edge Functions with flexible storage options (local/S3)
+- Direct Data API for database operations
 - Enhanced user isolation and security
 - AWS-optimized configuration
 - Docker-based deployment
 - Multi-environment support
+- Performance monitoring and optimization
 
 ## Documentation
 
