@@ -17,7 +17,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 
 const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
-  // Mock feature flags endpoint for local development
-  // Return empty object (no feature flags)
-  return res.status(200).json({})
+  // Mock feature flags endpoint for self-hosted development
+  // Return some default feature flags that are commonly used
+  return res.status(200).json({
+    // Universal filter bar flag used in LogsPreviewer
+    universalFilterBar: false,
+    // Other common flags that might be referenced
+    storageAnalyticsVector: false,
+    edgeFunctionsInvocations: true,
+    // Add more flags as needed based on usage
+  })
 }

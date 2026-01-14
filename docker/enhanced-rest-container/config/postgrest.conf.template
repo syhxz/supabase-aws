@@ -1,0 +1,73 @@
+# Enhanced PostgREST Configuration Template
+# This template is processed by the enhanced-startup.sh script
+# Requirements: 13.1, 13.2, 13.3, 13.4, 13.5
+
+# Database connection settings
+db-uri = "${PGRST_DB_URI}"
+db-schemas = "${PGRST_DB_SCHEMAS}"
+db-anon-role = "${PGRST_DB_ANON_ROLE}"
+db-use-legacy-gucs = ${PGRST_DB_USE_LEGACY_GUCS}
+
+# Connection pooling configuration
+db-pool = ${PGRST_DB_POOL}
+db-pool-timeout = ${PGRST_DB_POOL_TIMEOUT}
+db-pool-acquisition-timeout = ${PGRST_DB_POOL_ACQUISITION_TIMEOUT}
+
+# Server configuration
+server-host = "${PGRST_SERVER_HOST}"
+server-port = ${PGRST_SERVER_PORT}
+
+# JWT configuration
+jwt-secret = "${PGRST_JWT_SECRET}"
+jwt-aud = "${PGRST_JWT_AUD}"
+
+# Performance optimization settings
+db-prepared-statements = ${PGRST_DB_PREPARED_STATEMENTS}
+db-config = ${PGRST_DB_CONFIG}
+db-root-spec = ${PGRST_DB_ROOT_SPEC}
+db-max-rows = ${PGRST_DB_MAX_ROWS}
+
+# Schema cache configuration
+db-schema-cache-size = ${PGRST_DB_SCHEMA_CACHE_SIZE}
+
+# Logging configuration
+log-level = "${PGRST_LOG_LEVEL}"
+server-trace-header = "${PGRST_SERVER_TRACE_HEADER}"
+
+# Enhanced features configuration (custom settings)
+# These are processed by the enhanced middleware
+
+# RPC function support
+enhanced-rpc-enabled = ${ENHANCED_RPC_ENABLED}
+
+# JSON operations support
+enhanced-json-ops-enabled = ${ENHANCED_JSON_OPS_ENABLED}
+
+# Full-text search support
+enhanced-fts-enabled = ${ENHANCED_FTS_ENABLED}
+
+# Aggregate functions support
+enhanced-aggregates-enabled = ${ENHANCED_AGGREGATES_ENABLED}
+
+# Bulk operations support
+enhanced-bulk-ops-enabled = ${ENHANCED_BULK_OPS_ENABLED}
+enhanced-max-bulk-size = ${ENHANCED_MAX_BULK_SIZE}
+
+# Transaction support
+enhanced-transactions-enabled = ${ENHANCED_TRANSACTIONS_ENABLED}
+
+# Array operations support
+enhanced-array-ops-enabled = ${ENHANCED_ARRAY_OPS_ENABLED}
+
+# Response caching
+enhanced-response-cache-enabled = ${ENHANCED_RESPONSE_CACHE_ENABLED}
+enhanced-response-cache-ttl = ${ENHANCED_RESPONSE_CACHE_TTL}
+
+# Query complexity limits
+enhanced-max-query-complexity = ${ENHANCED_MAX_QUERY_COMPLEXITY}
+enhanced-max-nested-depth = ${ENHANCED_MAX_NESTED_DEPTH}
+
+# Monitoring and metrics
+enhanced-metrics-enabled = ${ENHANCED_METRICS_ENABLED}
+enhanced-metrics-port = ${ENHANCED_METRICS_PORT}
+enhanced-health-check-enabled = ${ENHANCED_HEALTH_CHECK_ENABLED}

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { handleError } from 'data/fetchers'
+import { handleError, fetchPost } from 'data/fetchers'
 import type { ResponseError } from 'types'
 import { databaseKeys } from './keys'
 import { PoolingCacheInvalidation } from './pooling-cache-invalidation'
@@ -16,17 +16,12 @@ export async function updateSupavisorConfig({
   ref,
   ...updates
 }: SupavisorConfigUpdateVariables) {
-  const response = await fetch(`/api/platform/projects/${ref}/supavisor-config`, {
+  const response = await fetchPost(`/api/platform/projects/${ref}/supavisor-config`, updates, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updates),
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    handleError(error)
+  if (response instanceof Error) {
+    handleError(response)
   }
 
   const result = await response.json()

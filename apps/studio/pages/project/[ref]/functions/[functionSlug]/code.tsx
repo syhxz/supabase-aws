@@ -1,6 +1,6 @@
 import { common, dirname, relative } from '@std/path/posix'
 import { PermissionAction } from '@supabase/shared-types/out/constants'
-import { AlertCircle, CornerDownLeft, Loader2 } from 'lucide-react'
+import { AlertCircle, CornerDownLeft, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -19,7 +19,7 @@ import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
 import { BASE_PATH } from 'lib/constants'
-import { LogoLoader } from 'ui'
+import { LogoLoader, Button } from 'ui'
 
 const CodePage = () => {
   const { ref, functionSlug } = useParams()
@@ -41,6 +41,7 @@ const CodePage = () => {
     isError: isErrorLoadingFiles,
     isSuccess: isSuccessLoadingFiles,
     error: filesError,
+    refetch: refetchFiles,
   } = useEdgeFunctionBodyQuery(
     {
       projectRef: ref,
@@ -124,6 +125,10 @@ const CodePage = () => {
     })
   }
 
+  const handleRetryLoad = () => {
+    refetchFiles()
+  }
+
   const handleDeployConfirm = () => {
     sendEvent({
       action: 'edge_function_deploy_updates_confirm_clicked',
@@ -188,13 +193,38 @@ const CodePage = () => {
 
       {isErrorLoadingFiles && (
         <div className="flex flex-col items-center justify-center h-full bg-surface-200">
-          <div className="flex flex-col items-center text-center gap-2 max-w-md">
+          <div className="flex flex-col items-center text-center gap-4 max-w-md">
             <AlertCircle size={24} strokeWidth={1.5} className="text-amber-900" />
-            <h3 className="text-md mt-4">Failed to load function code</h3>
-            <p className="text-sm text-foreground-light">
-              {filesError?.message ||
-                'There was an error loading the function code. The format may be invalid or the function may be corrupted.'}
-            </p>
+            <div className="space-y-2">
+              <h3 className="text-md mt-4">Failed to load function code</h3>
+              <p className="text-sm text-foreground-light">
+                {filesError?.message?.includes('not found') || filesError?.message?.includes('404')
+                  ? `The function "${functionSlug}" could not be found. It may have been deleted or the slug may be incorrect.`
+                  : filesError?.message?.includes('permission') || filesError?.message?.includes('403')
+                  ? 'You do not have permission to view this function code.'
+                  : filesError?.message?.includes('timeout') || filesError?.message?.includes('network')
+                  ? 'Unable to connect to the Edge Functions service. Please check your network connection.'
+                  : filesError?.message ||
+                    'There was an error loading the function code. The format may be invalid or the function may be corrupted.'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="default"
+                size="small"
+                icon={<RefreshCw size={14} />}
+                onClick={handleRetryLoad}
+              >
+                Retry
+              </Button>
+              <Button
+                type="default"
+                size="small"
+                onClick={() => window.history.back()}
+              >
+                Go back
+              </Button>
+            </div>
           </div>
         </div>
       )}

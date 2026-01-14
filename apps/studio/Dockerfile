@@ -20,9 +20,29 @@ RUN apt-get update -qq && \
   python3 \ 
   ca-certificates \
   build-essential \
-  curl && \ 
+  curl \
+  unzip && \ 
   rm -rf /var/lib/apt/lists/* && \
   update-ca-certificates
+
+# Install Deno for Edge Functions runtime support
+# Requirements 18.1, 18.2: Install Deno to support Deno Runtime Integration with Dual Storage
+# Use Deno v2.6.4 with architecture detection
+ENV DENO_VERSION=v2.6.4
+RUN ARCH=$(uname -m) && \
+  if [ "$ARCH" = "x86_64" ]; then \
+    DENO_ARCH="x86_64-unknown-linux-gnu"; \
+  elif [ "$ARCH" = "aarch64" ]; then \
+    DENO_ARCH="aarch64-unknown-linux-gnu"; \
+  else \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
+  fi && \
+  curl -fsSL "https://github.com/denoland/deno/releases/download/${DENO_VERSION}/deno-${DENO_ARCH}.zip" -o deno.zip && \
+  unzip deno.zip && \
+  mv deno /usr/local/bin/deno && \
+  chmod +x /usr/local/bin/deno && \
+  rm deno.zip && \
+  deno --version
 
 RUN npm install -g pnpm@10.16.1
 

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { components } from 'api-types'
 import { get, handleError } from 'data/fetchers'
-import { IS_PLATFORM } from 'lib/constants'
 import type { ResponseError, UseCustomQueryOptions } from 'types'
 import { edgeFunctionsKeys } from './keys'
 
@@ -25,6 +24,23 @@ export async function getEdgeFunction(
   })
 
   if (error) handleError(error)
+  
+  // Normalize function metadata for consistent display
+  if (data) {
+    return {
+      ...data,
+      // Ensure name is properly set with fallback to slug
+      name: data.name && data.name.trim() ? data.name : data.slug || slug,
+      // Add deployment source detection (these fields may not exist in the API response)
+      deploymentSource: (data as any).deploymentSource || 
+                      ((data as any).deployedViaStudio || (data as any).source === 'studio' ? 'ui' : 
+                       (data as any).deployedViaAPI || (data as any).source === 'api' ? 'api' : 'ui'),
+      // Ensure timestamps are properly formatted (use existing fields)
+      created_at: data.created_at || new Date().toISOString(),
+      updated_at: data.updated_at || new Date().toISOString(),
+    }
+  }
+  
   return data
 }
 
@@ -41,7 +57,6 @@ export const useEdgeFunctionQuery = <TData = EdgeFunctionData>(
   useQuery<EdgeFunctionData, EdgeFunctionError, TData>({
     queryKey: edgeFunctionsKeys.detail(projectRef, slug),
     queryFn: ({ signal }) => getEdgeFunction({ projectRef, slug }, signal),
-    enabled:
-      IS_PLATFORM && enabled && typeof projectRef !== 'undefined' && typeof slug !== 'undefined',
+    enabled: enabled && typeof projectRef !== 'undefined' && typeof slug !== 'undefined',
     ...options,
   })

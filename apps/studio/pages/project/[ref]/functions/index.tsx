@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import React from 'react'
+import React, { useMemo } from 'react'
 
 import { useParams } from 'common'
 import { DeployEdgeFunctionButton } from 'components/interfaces/EdgeFunctions/DeployEdgeFunctionButton'
@@ -16,7 +16,7 @@ import { GenericSkeletonLoader } from 'components/ui/ShimmeringLoader'
 import { useEdgeFunctionsQuery } from 'data/edge-functions/edge-functions-query'
 import { DOCS_URL, IS_PLATFORM } from 'lib/constants'
 import type { NextPageWithLayout } from 'types'
-import { Button, Card, Table, TableBody, TableHead, TableHeader, TableRow } from 'ui'
+import { Button, Card, Table, TableBody, TableHead, TableHeader, TableRow, Badge } from 'ui'
 import { PageContainer } from 'ui-patterns/PageContainer'
 import {
   PageHeader,
@@ -40,46 +40,90 @@ const EdgeFunctionsPage: NextPageWithLayout = () => {
 
   const hasFunctions = (functions ?? []).length > 0
 
+  // Normalize function metadata for consistent display
+  const normalizedFunctions = useMemo(() => {
+    if (!functions) return []
+    
+    return functions.map((func) => ({
+      ...func,
+      // Ensure name is properly set with fallback to slug
+      name: func.name && func.name.trim() ? func.name : func.slug,
+      // Normalize deployment source detection
+      deploymentSource: func.deploymentSource || 
+                      (func.deployedViaStudio || func.source === 'studio' ? 'ui' : 
+                       func.deployedViaAPI || func.source === 'api' ? 'api' : 'ui'),
+    }))
+  }, [functions])
+
+  // Statistics for deployment sources
+  const deploymentStats = useMemo(() => {
+    if (!normalizedFunctions.length) return null
+    
+    const uiDeployed = normalizedFunctions.filter(f => f.deploymentSource === 'ui').length
+    const apiDeployed = normalizedFunctions.filter(f => f.deploymentSource === 'api').length
+    
+    return { uiDeployed, apiDeployed, total: normalizedFunctions.length }
+  }, [normalizedFunctions])
+
   return (
     <PageContainer size="large">
       <PageSection>
         <PageSectionContent>
-          {IS_PLATFORM ? (
+          {isLoading && <GenericSkeletonLoader />}
+          {isError && <AlertError error={error} subject="Failed to retrieve edge functions" />}
+          {isSuccess && (
             <>
-              {isLoading && <GenericSkeletonLoader />}
-              {isError && <AlertError error={error} subject="Failed to retrieve edge functions" />}
-              {isSuccess && (
-                <>
-                  {hasFunctions ? (
-                    <Card>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>URL</TableHead>
-                            <TableHead className="hidden 2xl:table-cell">Created</TableHead>
-                            <TableHead className="lg:table-cell">Last updated</TableHead>
-                            <TableHead className="lg:table-cell">Deployments</TableHead>
-                          </TableRow>
-                        </TableHeader>
-
-                        <TableBody>
-                          <>
-                            {functions.length > 0 &&
-                              functions.map((item) => (
-                                <EdgeFunctionsListItem key={item.id} function={item} />
-                              ))}
-                          </>
-                        </TableBody>
-                      </Table>
-                    </Card>
-                  ) : (
-                    <FunctionsEmptyState />
+              {hasFunctions ? (
+                <div className="space-y-4">
+                  {deploymentStats && deploymentStats.total > 1 && (
+                    <div className="flex items-center gap-4 text-sm text-foreground-light">
+                      <span>
+                        {deploymentStats.total} function{deploymentStats.total !== 1 ? 's' : ''}
+                      </span>
+                      {deploymentStats.uiDeployed > 0 && (
+                        <Badge variant="default" className="text-xs">
+                          {deploymentStats.uiDeployed} Studio
+                        </Badge>
+                      )}
+                      {deploymentStats.apiDeployed > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {deploymentStats.apiDeployed} API
+                        </Badge>
+                      )}
+                    </div>
                   )}
-                </>
+                  <Card>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>URL</TableHead>
+                          <TableHead className="hidden 2xl:table-cell">Created</TableHead>
+                          <TableHead className="lg:table-cell">Last updated</TableHead>
+                          <TableHead className="lg:table-cell">Deployments</TableHead>
+                        </TableRow>
+                      </TableHeader>
+
+                      <TableBody>
+                        <>
+                          {normalizedFunctions.length > 0 &&
+                            normalizedFunctions.map((item) => (
+                              <EdgeFunctionsListItem key={item.id} function={item} />
+                            ))}
+                        </>
+                      </TableBody>
+                    </Table>
+                  </Card>
+                </div>
+              ) : IS_PLATFORM ? (
+                <FunctionsEmptyState />
+              ) : (
+                <FunctionsEmptyStateLocal />
               )}
             </>
-          ) : (
+          )}
+          {/* Show local empty state if query is disabled due to service unavailability */}
+          {!isLoading && !isError && !isSuccess && !IS_PLATFORM && (
             <FunctionsEmptyStateLocal />
           )}
         </PageSectionContent>
@@ -115,7 +159,7 @@ EdgeFunctionsPage.getLayout = (page: React.ReactElement) => {
             </PageHeaderSummary>
             <PageHeaderAside>
               {secondaryActions.map((action) => action)}
-              {IS_PLATFORM && <DeployEdgeFunctionButton />}
+              <DeployEdgeFunctionButton />
             </PageHeaderAside>
           </PageHeaderMeta>
         </PageHeader>

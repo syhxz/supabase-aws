@@ -1,0 +1,27 @@
+{
+  "name": "enhanced-rest-api-integration-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for Enhanced REST API features",
+  "main": "enhanced-rest-api-integration.test.js",
+  "scripts": {
+    "test": "node enhanced-rest-api-integration.test.js",
+    "test:light": "node ../load-testing/load-test-suite.js light",
+    "test:moderate": "node ../load-testing/load-test-suite.js moderate",
+    "test:heavy": "node ../load-testing/load-test-suite.js heavy",
+    "test:stress": "node ../load-testing/load-test-suite.js stress",
+    "test:all": "npm run test && npm run test:light"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "supabase",
+    "postgrest",
+    "rest-api",
+    "integration-tests",
+    "load-testing"
+  ],
+  "author": "Supabase Enhanced REST API Team",
+  "license": "MIT"
+}

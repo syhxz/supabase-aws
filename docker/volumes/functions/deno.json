@@ -4,5 +4,14 @@
     "lib": ["deno.window"],
     "strict": true
   },
-  "importMap": "./import_map.json"
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": ["**/*.ts", "**/*.js"]
+    }
+  }
 }

@@ -121,7 +121,7 @@ next-env.d.ts
 CLAUDE.md
 
 #include template .env file for docker-compose
-!docker/.env
+!docker/.env.example
 !docker/supabase/.env
 !docker/supabase-traefik/.env
 

@@ -1,7 +1,8 @@
 import { isValidEdgeFunctionURL } from 'lib/api/edgeFunctions'
 import { NextApiRequest, NextApiResponse } from 'next'
+import { withCORS } from 'lib/functions-service/cors/CORSMiddleware'
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -121,3 +122,8 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     })
   }
 }
+
+export default withCORS(handler, {
+  handlePreflight: true,
+  addHeaders: true,
+})

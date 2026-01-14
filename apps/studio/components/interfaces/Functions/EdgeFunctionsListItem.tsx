@@ -1,17 +1,22 @@
 import dayjs from 'dayjs'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Code, Globe } from 'lucide-react'
 import { useRouter } from 'next/router'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 import { useParams } from 'common/hooks'
 import { useProjectSettingsV2Query } from 'data/config/project-settings-v2-query'
 import { useCustomDomainsQuery } from 'data/custom-domains/custom-domains-query'
 import type { EdgeFunctionsResponse } from 'data/edge-functions/edge-functions-query'
-import { copyToClipboard, TableCell, TableRow } from 'ui'
+import { copyToClipboard, TableCell, TableRow, Badge } from 'ui'
 import { TimestampInfo } from 'ui-patterns'
 
 interface EdgeFunctionsListItemProps {
-  function: EdgeFunctionsResponse
+  function: EdgeFunctionsResponse & {
+    deploymentSource?: 'ui' | 'api' | string
+    deployedViaStudio?: boolean
+    deployedViaAPI?: boolean
+    source?: string
+  }
 }
 
 export const EdgeFunctionsListItem = ({ function: item }: EdgeFunctionsListItemProps) => {
@@ -29,6 +34,63 @@ export const EdgeFunctionsListItem = ({ function: item }: EdgeFunctionsListItemP
       ? `https://${customDomainData.customDomain.hostname}/functions/v1/${item.slug}`
       : `${protocol}://${endpoint}/functions/v1/${item.slug}`
 
+  // Enhanced function name display with fallback
+  const displayName = useMemo(() => {
+    if (item.name && item.name.trim()) {
+      return item.name
+    }
+    if (item.slug) {
+      return item.slug
+    }
+    return 'Unknown Function'
+  }, [item.name, item.slug])
+
+  // Detect deployment source based on metadata patterns
+  const deploymentSource = useMemo(() => {
+    // Check for deployment source indicators in the function metadata
+    if (item.deploymentSource) {
+      return item.deploymentSource
+    }
+    
+    // Fallback detection based on metadata patterns
+    if (item.deployedViaStudio || item.source === 'studio') {
+      return 'ui'
+    }
+    
+    if (item.deployedViaAPI || item.source === 'api') {
+      return 'api'
+    }
+    
+    // Default to 'ui' for backward compatibility
+    return 'ui'
+  }, [item])
+
+  const deploymentSourceConfig = useMemo(() => {
+    switch (deploymentSource) {
+      case 'api':
+        return {
+          label: 'API',
+          icon: Code,
+          variant: 'outline' as const,
+          description: 'Deployed via API'
+        }
+      case 'ui':
+        return {
+          label: 'Studio',
+          icon: Globe,
+          variant: 'default' as const,
+          description: 'Deployed via Studio UI'
+        }
+      default:
+        return {
+          label: 'Unknown',
+          icon: Code,
+          variant: 'secondary' as const,
+          description: 'Unknown deployment source'
+        }
+    }
+  }, [deploymentSource])
+
   return (
     <TableRow
       key={item.id}
@@ -38,7 +100,21 @@ export const EdgeFunctionsListItem = ({ function: item }: EdgeFunctionsListItemP
       className="cursor-pointer"
     >
       <TableCell>
-        <p className="text-sm text-foreground whitespace-nowrap">{item.name}</p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm text-foreground whitespace-nowrap font-medium">{displayName}</p>
+            {item.slug !== displayName && (
+              <p className="text-xs text-foreground-light">{item.slug}</p>
+            )}
+          </div>
+          <Badge 
+            variant={deploymentSourceConfig.variant}
+            className="flex items-center gap-1 text-xs"
+          >
+            <deploymentSourceConfig.icon size={12} />
+            {deploymentSourceConfig.label}
+          </Badge>
+        </div>
       </TableCell>
       <TableCell>
         <div className="text-xs text-foreground-light flex gap-2 items-center truncate">

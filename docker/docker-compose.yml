@@ -88,6 +88,10 @@ services:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
       
+      # JWT issuer configuration - accept both internal and external URLs
+      # This fixes the JWT issuer validation issue where tokens have localhost:8000 but Studio expects kong:8000
+      GOTRUE_JWT_ISSUER: ${GOTRUE_JWT_ISSUER:-http://localhost:8000}
+      
       # GoTrue URL configuration
       NEXT_PUBLIC_GOTRUE_URL: ${NEXT_PUBLIC_GOTRUE_URL:-http://localhost:8000/auth/v1}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:8000}
@@ -127,6 +131,28 @@ services:
       # Organization features control
       NEXT_PUBLIC_ENABLE_ORG_FEATURES: ${NEXT_PUBLIC_ENABLE_ORG_FEATURES:-false}
 
+      # Edge Functions Configuration
+      EDGE_FUNCTIONS_URL: ${EDGE_FUNCTIONS_URL:-http://functions:9000}
+      EDGE_FUNCTIONS_STORAGE_BACKEND: ${EDGE_FUNCTIONS_STORAGE_BACKEND:-local}
+      EDGE_FUNCTIONS_LOCAL_PATH: ${EDGE_FUNCTIONS_LOCAL_PATH:-/home/deno/functions}
+      
+      # S3 Storage Configuration (when backend is 's3')
+      EDGE_FUNCTIONS_S3_BUCKET_NAME: ${EDGE_FUNCTIONS_S3_BUCKET_NAME:-}
+      EDGE_FUNCTIONS_S3_REGION: ${EDGE_FUNCTIONS_S3_REGION:-}
+      EDGE_FUNCTIONS_S3_ENDPOINT: ${EDGE_FUNCTIONS_S3_ENDPOINT:-}
+      
+      # AWS Credentials (reused from existing storage configuration)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+
+      # CORS Configuration for Edge Functions
+      # Requirements 21.2, 21.3: Pass CORS configuration to Studio for Edge Functions service
+      EDGE_FUNCTIONS_CORS_ALLOWED_ORIGINS: ${EDGE_FUNCTIONS_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080}
+      EDGE_FUNCTIONS_CORS_ALLOWED_HEADERS: ${EDGE_FUNCTIONS_CORS_ALLOWED_HEADERS:-user-agent,content-type,authorization,x-client-info,apikey,x-supabase-api-version,cache-control,pragma,accept,accept-language,accept-encoding,x-requested-with}
+      EDGE_FUNCTIONS_CORS_ALLOWED_METHODS: ${EDGE_FUNCTIONS_CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS}
+      EDGE_FUNCTIONS_CORS_ALLOW_CREDENTIALS: ${EDGE_FUNCTIONS_CORS_ALLOW_CREDENTIALS:-true}
+      EDGE_FUNCTIONS_CORS_MAX_AGE: ${EDGE_FUNCTIONS_CORS_MAX_AGE:-86400}
+
       # User Isolation Configuration
       # Requirements 10.1, 10.2: Enable user project isolation feature
       ENABLE_USER_ISOLATION: ${ENABLE_USER_ISOLATION:-true}
@@ -134,6 +160,11 @@ services:
       # Environment Configuration
       # Requirements 10.3, 10.4: Pass environment variables for runtime detection
       NODE_ENV: ${NODE_ENV:-production}
+    volumes:
+      # Mount Edge Functions directory for local storage backend
+      - ./volumes/functions:/home/deno/functions:rw
+      # Mount secrets storage directory for persistence
+      - ./volumes/studio/.supabase:/app/.supabase:rw
 
   kong:
     container_name: supabase-kong
@@ -212,6 +243,7 @@ services:
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
       GOTRUE_JWT_EXP: ${JWT_EXPIRY}
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_ISSUER: ${GOTRUE_JWT_ISSUER}
 
       GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP}
       GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS}
@@ -232,7 +264,9 @@ services:
 
   rest:
     container_name: supabase-rest
-    image: postgrest/postgrest:v13.0.7
+    build:
+      context: .
+      dockerfile: enhanced-rest-container/Dockerfile
     restart: unless-stopped
     depends_on:
       analytics:
@@ -241,20 +275,78 @@ services:
       db:
         condition: service_healthy
         required: false
+    ports:
+      # Expose monitoring port for metrics collection
+      - "${ENHANCED_METRICS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check.sh", "--simple"]
+      timeout: 10s
+      interval: 30s
+      start_period: 60s
+      retries: 3
     environment:
+      # Core PostgREST configuration
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_JWT_AUD: ${JWT_AUD:-authenticated}
       PGRST_DB_USE_LEGACY_GUCS: "false"
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
-    command:
-      [
-        "sh",
-        "-c",
-        "sleep 10 && /bin/postgrest"
-      ]
+      
+      # Performance optimization settings
+      PGRST_DB_MAX_ROWS: ${PGRST_DB_MAX_ROWS:-1000}
+      PGRST_DB_POOL: ${PGRST_DB_POOL:-10}
+      PGRST_DB_POOL_TIMEOUT: ${PGRST_DB_POOL_TIMEOUT:-10}
+      PGRST_DB_POOL_ACQUISITION_TIMEOUT: ${PGRST_DB_POOL_ACQUISITION_TIMEOUT:-10}
+      PGRST_SERVER_HOST: ${PGRST_SERVER_HOST:-0.0.0.0}
+      PGRST_SERVER_PORT: ${PGRST_SERVER_PORT:-3000}
+      PGRST_DB_PREPARED_STATEMENTS: ${PGRST_DB_PREPARED_STATEMENTS:-true}
+      PGRST_DB_CONFIG: ${PGRST_DB_CONFIG:-true}
+      PGRST_DB_ROOT_SPEC: ${PGRST_DB_ROOT_SPEC:-}
+      PGRST_LOG_LEVEL: ${PGRST_LOG_LEVEL:-info}
+      PGRST_SERVER_TRACE_HEADER: ${PGRST_SERVER_TRACE_HEADER:-X-Request-ID}
+      PGRST_DB_SCHEMA_CACHE_SIZE: ${PGRST_DB_SCHEMA_CACHE_SIZE:-100}
+      
+      # Enhanced REST API features
+      ENHANCED_RPC_ENABLED: ${ENHANCED_RPC_ENABLED:-true}
+      ENHANCED_JSON_OPS_ENABLED: ${ENHANCED_JSON_OPS_ENABLED:-true}
+      ENHANCED_FTS_ENABLED: ${ENHANCED_FTS_ENABLED:-true}
+      ENHANCED_AGGREGATES_ENABLED: ${ENHANCED_AGGREGATES_ENABLED:-true}
+      ENHANCED_BULK_OPS_ENABLED: ${ENHANCED_BULK_OPS_ENABLED:-true}
+      ENHANCED_TRANSACTIONS_ENABLED: ${ENHANCED_TRANSACTIONS_ENABLED:-true}
+      ENHANCED_ARRAY_OPS_ENABLED: ${ENHANCED_ARRAY_OPS_ENABLED:-true}
+      
+      # Cache configuration
+      ENHANCED_RESPONSE_CACHE_ENABLED: ${ENHANCED_RESPONSE_CACHE_ENABLED:-true}
+      ENHANCED_RESPONSE_CACHE_TTL: ${ENHANCED_RESPONSE_CACHE_TTL:-300}
+      
+      # Query complexity limits
+      ENHANCED_MAX_QUERY_COMPLEXITY: ${ENHANCED_MAX_QUERY_COMPLEXITY:-1000}
+      ENHANCED_MAX_NESTED_DEPTH: ${ENHANCED_MAX_NESTED_DEPTH:-5}
+      ENHANCED_MAX_BULK_SIZE: ${ENHANCED_MAX_BULK_SIZE:-1000}
+      
+      # Monitoring and health checks
+      ENHANCED_METRICS_ENABLED: ${ENHANCED_METRICS_ENABLED:-true}
+      ENHANCED_METRICS_PORT: ${ENHANCED_METRICS_PORT:-9090}
+      ENHANCED_METRICS_INTERVAL: ${ENHANCED_METRICS_INTERVAL:-30}
+      ENHANCED_HEALTH_CHECK_ENABLED: ${ENHANCED_HEALTH_CHECK_ENABLED:-true}
+      ENHANCED_MEMORY_LIMIT_MB: ${ENHANCED_MEMORY_LIMIT_MB:-512}
+      ENHANCED_MIN_DISK_SPACE_MB: ${ENHANCED_MIN_DISK_SPACE_MB:-100}
+    volumes:
+      # Mount cache directory for response caching
+      - ./volumes/rest-cache:/tmp/postgrest-cache:rw
+      # Mount logs directory for performance monitoring
+      - ./volumes/rest-logs:/var/log/postgrest:rw
+    deploy:
+      resources:
+        limits:
+          memory: ${ENHANCED_MEMORY_LIMIT_MB:-512}M
+          cpus: '${ENHANCED_CPU_LIMIT:-1.0}'
+        reservations:
+          memory: ${ENHANCED_MEMORY_RESERVATION_MB:-256}M
+          cpus: '${ENHANCED_CPU_RESERVATION:-0.5}'
 
   realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
@@ -390,6 +482,9 @@ services:
     restart: unless-stopped
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
+      # Additional volume for temporary files and cache when using local storage
+      - edge-functions-temp:/tmp/edge-functions:Z
+      - edge-functions-cache:/tmp/deno-cache:Z
     depends_on:
       analytics:
         condition: service_healthy
@@ -404,6 +499,43 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
+      
+      # Storage Backend Configuration
+      EDGE_FUNCTIONS_STORAGE_BACKEND: ${EDGE_FUNCTIONS_STORAGE_BACKEND:-local}
+      
+      # Local Storage Configuration
+      EDGE_FUNCTIONS_LOCAL_PATH: ${EDGE_FUNCTIONS_LOCAL_PATH:-/home/deno/functions}
+      
+      # S3 Storage Configuration (when backend is 's3')
+      EDGE_FUNCTIONS_S3_BUCKET_NAME: ${EDGE_FUNCTIONS_S3_BUCKET_NAME:-}
+      EDGE_FUNCTIONS_S3_REGION: ${EDGE_FUNCTIONS_S3_REGION:-}
+      EDGE_FUNCTIONS_S3_ENDPOINT: ${EDGE_FUNCTIONS_S3_ENDPOINT:-}
+      
+      # AWS Credentials (reused from existing storage configuration)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      
+      # Deno Runtime Configuration
+      DENO_PATH: ${DENO_PATH:-deno}
+      EDGE_FUNCTIONS_TEMP_DIR: ${EDGE_FUNCTIONS_TEMP_DIR:-/tmp/edge-functions}
+      EDGE_FUNCTIONS_CACHE_DIR: ${EDGE_FUNCTIONS_CACHE_DIR:-/tmp/deno-cache}
+      EDGE_FUNCTIONS_EXECUTION_TIMEOUT: ${EDGE_FUNCTIONS_EXECUTION_TIMEOUT:-30000}
+      EDGE_FUNCTIONS_TYPE_CHECK: ${EDGE_FUNCTIONS_TYPE_CHECK:-true}
+      
+      # Deno Permissions Configuration
+      DENO_ALLOW_NET: ${DENO_ALLOW_NET:-true}
+      DENO_ALLOW_READ: ${DENO_ALLOW_READ:-/tmp/edge-functions,/home/deno/functions}
+      DENO_ALLOW_WRITE: ${DENO_ALLOW_WRITE:-false}
+      DENO_ALLOW_ENV: ${DENO_ALLOW_ENV:-SUPABASE_URL,SUPABASE_ANON_KEY}
+      DENO_ALLOW_RUN: ${DENO_ALLOW_RUN:-false}
+      
+      # CORS Configuration for Edge Functions Service
+      # Requirements 21.2, 21.3: Configure CORS for Edge Functions runtime
+      EDGE_FUNCTIONS_CORS_ALLOWED_ORIGINS: ${EDGE_FUNCTIONS_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080}
+      EDGE_FUNCTIONS_CORS_ALLOWED_HEADERS: ${EDGE_FUNCTIONS_CORS_ALLOWED_HEADERS:-user-agent,content-type,authorization,x-client-info,apikey,x-supabase-api-version,cache-control,pragma,accept,accept-language,accept-encoding,x-requested-with}
+      EDGE_FUNCTIONS_CORS_ALLOWED_METHODS: ${EDGE_FUNCTIONS_CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS}
+      EDGE_FUNCTIONS_CORS_ALLOW_CREDENTIALS: ${EDGE_FUNCTIONS_CORS_ALLOW_CREDENTIALS:-true}
+      EDGE_FUNCTIONS_CORS_MAX_AGE: ${EDGE_FUNCTIONS_CORS_MAX_AGE:-86400}
     command:
       [
         "start",
@@ -548,3 +680,7 @@ services:
 
 volumes:
   db-config:
+  edge-functions-temp:
+  edge-functions-cache:
+  rest-cache:
+  rest-logs:

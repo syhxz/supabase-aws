@@ -26,4 +26,10 @@ export const configKeys = {
     ['projects', projectRef, 'available-unpause-versions'] as const,
   diskAutoscaleConfig: (projectRef: string | undefined) =>
     ['projects', projectRef, 'disk-autoscale-config'] as const,
+  projectUrl: (projectRef: string | undefined) =>
+    ['projects', projectRef, 'url'] as const,
+  dataApiConfig: (projectRef: string | undefined) =>
+    ['projects', projectRef, 'data-api-config'] as const,
+  enhancedRestApiConfig: (projectRef: string | undefined) =>
+    ['projects', projectRef, 'enhanced-rest-api-config'] as const,
 }

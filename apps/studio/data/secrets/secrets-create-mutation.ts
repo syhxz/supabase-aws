@@ -15,7 +15,7 @@ export async function createSecrets({ projectRef, secrets }: SecretsCreateVariab
 
   const { data, error } = await post('/v1/projects/{ref}/secrets', {
     params: { path: { ref: projectRef } },
-    body: secrets,
+    body: { secrets },
   })
 
   if (error) handleError(error)

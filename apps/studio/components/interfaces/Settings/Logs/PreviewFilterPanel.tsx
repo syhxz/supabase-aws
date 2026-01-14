@@ -194,6 +194,12 @@ const PreviewFilterPanel = ({
           <div className="flex items-center">
             {FILTER_OPTIONS[table] &&
               Object.values(FILTER_OPTIONS[table]).map((x, i: number) => {
+                // Ensure x is a valid FilterSet object
+                if (!x || typeof x !== 'object' || !x.key || !x.label || !Array.isArray(x.options)) {
+                  console.warn('Invalid filter set found:', x)
+                  return null
+                }
+
                 const classes = []
 
                 if (Object.values(FILTER_OPTIONS[table]).length >= 2) {

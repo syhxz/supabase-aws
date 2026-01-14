@@ -6181,9 +6181,9 @@
                     "name": {
                       "type": "string",
                       "maxLength": 256,
-                      "pattern": "^(?!SUPABASE_).*",
-                      "description": "Secret name must not start with the SUPABASE_ prefix.",
-                      "example": "string"
+                      "pattern": "^[a-zA-Z0-9_]+$",
+                      "description": "Secret name can contain letters, numbers, and underscores.",
+                      "example": "my_secret"
                     },
                     "value": {
                       "type": "string",
@@ -21256,9 +21256,9 @@
             "name": {
               "type": "string",
               "maxLength": 256,
-              "pattern": "^(?!SUPABASE_).*",
-              "description": "Secret name must not start with the SUPABASE_ prefix.",
-              "example": "string"
+              "pattern": "^[a-zA-Z0-9_]+$",
+              "description": "Secret name can contain letters, numbers, and underscores.",
+              "example": "my_secret"
             },
             "value": {
               "type": "string",

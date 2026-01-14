@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { get, handleError } from 'data/fetchers'
+import { handleError } from 'data/fetchers'
 import type { ResponseError, UseCustomQueryOptions } from 'types'
 import { docsKeys } from './keys'
 
@@ -76,13 +76,30 @@ export async function getProjectJsonSchema(
 ) {
   if (!projectRef) throw new Error('projectRef is required')
 
-  const { data, error } = await get('/platform/projects/{ref}/api/rest', {
-    params: { path: { ref: projectRef } },
-    signal,
-  })
-
-  if (error) handleError(error)
-  return data as unknown as ProjectJsonSchemaResponse
+  // In self-hosted mode, use the custom OpenAPI schema generator endpoint
+  // This bypasses PostgREST's db-root-spec feature which has issues in self-hosted environments
+  try {
+    const response = await fetch(`/api/openapi-schema`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal,
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OpenAPI schema: ${response.status} ${response.statusText}`)
+    }
+    
+    const result = await response.json()
+    
+    // The custom endpoint returns { data: openApiSchema, tables: [], functions: [] }
+    // We need to return just the OpenAPI schema data
+    return result.data as unknown as ProjectJsonSchemaResponse
+  } catch (error) {
+    handleError(error)
+    throw error
+  }
 }
 
 export type ProjectJsonSchemaData = Awaited<ReturnType<typeof getProjectJsonSchema>>

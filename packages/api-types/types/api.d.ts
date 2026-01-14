@@ -2452,8 +2452,8 @@ export interface components {
     }
     CreateSecretBody: {
       /**
-       * @description Secret name must not start with the SUPABASE_ prefix.
-       * @example string
+       * @description Secret name can contain letters, numbers, and underscores.
+       * @example my_secret
        */
       name: string
       value: string

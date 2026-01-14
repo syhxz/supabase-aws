@@ -5,6 +5,7 @@ import { ButtonTooltip } from 'components/ui/ButtonTooltip'
 import type { ProjectSecret } from 'data/secrets/secrets-query'
 import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import {
+  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +14,19 @@ import {
   DropdownMenuTrigger,
   TableCell,
   TableRow,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from 'ui'
 import { TimestampInfo } from 'ui-patterns'
 
 interface EdgeFunctionSecretProps {
-  secret: ProjectSecret
+  secret: ProjectSecret & {
+    isRecommended?: boolean
+    description?: string
+    isSecret?: boolean
+  }
   onSelectDelete: () => void
   onSelectEdit: () => void
 }
@@ -31,7 +40,30 @@ const EdgeFunctionSecret = ({ secret, onSelectEdit, onSelectDelete }: EdgeFuncti
   return (
     <TableRow>
       <TableCell>
-        <p className="truncate py-2">{secret.name}</p>
+        <div className="flex items-center gap-2 py-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="truncate">{secret.name}</p>
+              </TooltipTrigger>
+              {secret.description && (
+                <TooltipContent>
+                  <p>{secret.description}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+          {secret.isRecommended && (
+            <Badge variant="default" className="text-xs">
+              Recommended
+            </Badge>
+          )}
+          {secret.isSecret && (
+            <Badge variant="warning" className="text-xs">
+              Secret
+            </Badge>
+          )}
+        </div>
       </TableCell>
       <TableCell>
         <p

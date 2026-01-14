@@ -1,6 +1,6 @@
 import { PermissionAction } from '@supabase/shared-types/out/constants'
 import { Search } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 
 import { useParams } from 'common'
@@ -8,6 +8,7 @@ import AlertError from 'components/ui/AlertError'
 import NoPermission from 'components/ui/NoPermission'
 import { GenericSkeletonLoader } from 'components/ui/ShimmeringLoader'
 import { useSecretsDeleteMutation } from 'data/secrets/secrets-delete-mutation'
+import { useSecretsCreateMutation } from 'data/secrets/secrets-create-mutation'
 import { useSecretsQuery } from 'data/secrets/secrets-query'
 import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import { handleErrorOnDelete, useQueryStateWithSelect } from 'hooks/misc/useQueryStateWithSelect'
@@ -17,10 +18,23 @@ import ConfirmationModal from 'ui-patterns/Dialogs/ConfirmationModal'
 import AddNewSecretForm from './AddNewSecretForm'
 import EdgeFunctionSecret from './EdgeFunctionSecret'
 import { EditSecretSheet } from './EditSecretSheet'
+import { useApiKeysVisibility } from 'components/interfaces/APIKeys/hooks/useApiKeysVisibility'
+import { getKeys, useAPIKeysQuery } from 'data/api-keys/api-keys-query'
+import { useProjectSettingsV2Query } from 'data/config/project-settings-v2-query'
+
+// Define recommended secrets interface
+interface RecommendedSecret {
+  name: string
+  value: string
+  description: string
+  isRecommended: boolean
+  isSecret?: boolean
+}
 
 export const EdgeFunctionSecrets = () => {
   const { ref: projectRef } = useParams()
   const [searchString, setSearchString] = useState('')
+  const [hasAutoCreated, setHasAutoCreated] = useState(false)
 
   // Track the ID being deleted to exclude it from error checking
   const deletingSecretNameRef = useRef<string | null>(null)
@@ -38,11 +52,70 @@ export const EdgeFunctionSecrets = () => {
     { enabled: canReadSecrets }
   )
 
+  // Fetch API keys and project settings for recommended secrets
+  const { canReadAPIKeys } = useApiKeysVisibility()
+  const { data: apiKeys } = useAPIKeysQuery(
+    { projectRef, reveal: true },
+    { enabled: canReadAPIKeys && canReadSecrets }
+  )
+  const { data: settings } = useProjectSettingsV2Query({ 
+    projectRef 
+  }, { 
+    enabled: canReadSecrets 
+  })
+
+  const { anonKey, serviceKey } = getKeys(apiKeys)
+
+  // Build recommended secrets
+  const recommendedSecrets = useMemo(() => {
+    const protocol = settings?.app_config?.protocol ?? 'https'
+    const endpoint = settings?.app_config?.endpoint
+    const projectUrl = endpoint ? `${protocol}://${endpoint}` : ''
+
+    const dbHost = settings?.db_host
+    const dbPort = settings?.db_port ?? 5432
+    const dbName = settings?.db_name ?? 'postgres'
+    const dbUser = settings?.db_user ?? 'postgres'
+    const databaseUrl = dbHost
+      ? `postgresql://${dbUser}:[YOUR-PASSWORD]@${dbHost}:${dbPort}/${dbName}`
+      : ''
+
+    return [
+      {
+        name: 'SUPABASE_URL',
+        value: projectUrl,
+        description: 'Your Supabase project URL',
+        isRecommended: true,
+      },
+      {
+        name: 'SUPABASE_ANON_KEY',
+        value: anonKey?.api_key ?? '',
+        description: 'Public anonymous key for client-side operations',
+        isRecommended: true,
+      },
+      {
+        name: 'SUPABASE_SERVICE_ROLE_KEY',
+        value: serviceKey?.api_key ?? '',
+        description: 'Service role key with admin privileges (keep secret!)',
+        isRecommended: true,
+        isSecret: true,
+      },
+      {
+        name: 'SUPABASE_DB_URL',
+        value: databaseUrl,
+        description: 'Direct database connection URL',
+        isRecommended: true,
+      },
+    ].filter((secret) => secret.value) // Only include secrets with values
+  }, [settings, anonKey, serviceKey])
+
   const { setValue: setSelectedSecretToEdit, value: selectedSecretToEdit } =
     useQueryStateWithSelect({
       urlKey: 'edit',
-      select: (secretName: string) =>
-        secretName ? data?.find((secret) => secret.name === secretName) : undefined,
+      select: (secretName: string) => {
+        if (!secretName) return undefined
+        return data?.find((secret) => secret.name === secretName)
+      },
       enabled: !!data,
       onError: () => toast.error(`Secret not found`),
     })
@@ -50,8 +123,10 @@ export const EdgeFunctionSecrets = () => {
   const { setValue: setSelectedSecretToDelete, value: selectedSecretToDelete } =
     useQueryStateWithSelect({
       urlKey: 'delete',
-      select: (secretName: string) =>
-        secretName ? data?.find((secret) => secret.name === secretName) : undefined,
+      select: (secretName: string) => {
+        if (!secretName) return undefined
+        return data?.find((secret) => secret.name === secretName)
+      },
       enabled: !!data,
       onError: (_error, selectedId) =>
         handleErrorOnDelete(deletingSecretNameRef, selectedId, `Secret not found`),
@@ -67,11 +142,72 @@ export const EdgeFunctionSecrets = () => {
     },
   })
 
+  const { mutate: createSecrets, isPending: isCreatingSecrets } = useSecretsCreateMutation({
+    onSuccess: () => {
+      // Silently create secrets without showing toast
+      setHasAutoCreated(true)
+    },
+    onError: (error) => {
+      console.error('Failed to auto-create recommended secrets:', error)
+    },
+  })
+
+  // Auto-create recommended secrets when they don't exist
+  useEffect(() => {
+    if (
+      !hasAutoCreated &&
+      canUpdateSecrets &&
+      data &&
+      recommendedSecrets.length > 0 &&
+      !isCreatingSecrets
+    ) {
+      const userSecretNames = new Set(data.map((s) => s.name))
+      const missingSecrets = recommendedSecrets
+        .filter((rec) => !userSecretNames.has(rec.name))
+        .map((rec) => ({ name: rec.name, value: rec.value }))
+
+      if (missingSecrets.length > 0) {
+        createSecrets({ projectRef, secrets: missingSecrets })
+      } else {
+        setHasAutoCreated(true)
+      }
+    }
+  }, [
+    hasAutoCreated,
+    canUpdateSecrets,
+    data,
+    recommendedSecrets,
+    isCreatingSecrets,
+    createSecrets,
+    projectRef,
+  ])
+
+  // Merge recommended secrets with user secrets
+  const allSecrets = useMemo(() => {
+    const userSecrets = data ?? []
+    const userSecretNames = new Set(userSecrets.map((s) => s.name))
+
+    // Mark user secrets that match recommended names
+    const enhancedUserSecrets = userSecrets.map((secret) => {
+      const matchingRecommended = recommendedSecrets.find((rec) => rec.name === secret.name)
+      if (matchingRecommended) {
+        return {
+          ...secret,
+          isRecommended: true,
+          description: matchingRecommended.description,
+          isSecret: matchingRecommended.isSecret,
+        }
+      }
+      return secret
+    })
+
+    return enhancedUserSecrets
+  }, [data, recommendedSecrets])
+
   const secrets =
     searchString.length > 0
-      ? data?.filter((secret) => secret.name.toLowerCase().includes(searchString.toLowerCase())) ??
-        []
-      : data ?? []
+      ? allSecrets.filter((secret) => secret.name.toLowerCase().includes(searchString.toLowerCase()))
+      : allSecrets
 
   const headers = [
     <TableHead key="secret-name">Name</TableHead>,
@@ -86,6 +222,8 @@ export const EdgeFunctionSecrets = () => {
   ]
 
   const showLoadingState = isLoadingSecretsPermissions || (canReadSecrets && isLoading)
+
+  const existingSecretNames = data?.map((secret) => secret.name) ?? []
 
   return (
     <>

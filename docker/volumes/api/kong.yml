@@ -69,10 +69,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
   - name: auth-v1-open-callback
     url: http://auth:9999/callback
     routes:
@@ -107,10 +103,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
   - name: auth-v1-open-authorize
     url: http://auth:9999/authorize
     routes:
@@ -145,10 +137,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
   - name: auth-v1-open-signup
     _comment: 'GoTrue Signup: /auth/v1/signup -> http://auth:9999/signup (public access)'
     url: http://auth:9999/signup
@@ -186,10 +174,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
   - name: auth-v1-open-token
     _comment: 'GoTrue Token: /auth/v1/token -> http://auth:9999/token (public access for signin and token refresh)'
     url: http://auth:9999/token
@@ -227,10 +211,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
   - name: auth-v1-open-logout
     _comment: 'GoTrue Logout: /auth/v1/logout -> http://auth:9999/logout (public access)'
     url: http://auth:9999/logout
@@ -270,10 +250,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
   - name: auth-v1-open-health
     _comment: 'GoTrue Health: /auth/v1/health -> http://auth:9999/health (public access)'
     url: http://auth:9999/health
@@ -313,10 +289,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
 
   ## Auth user route (authenticated with JWT token)
   - name: auth-v1-user
@@ -358,10 +330,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
 
   ## Secure Auth routes
   - name: auth-v1
@@ -399,10 +367,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -413,15 +377,16 @@ services:
             - admin
             - anon
 
-  ## Secure REST routes
-  - name: rest-v1
-    _comment: 'PostgREST: /rest/v1/* -> http://rest:3000/*'
-    url: http://rest:3000/
+  ## Project-specific REST routes (new architecture)
+  - name: rest-v1-projects
+    _comment: 'Project REST API: /rest/v1/projects/{projectRef}/* -> http://studio:3000/api/v1/projects/rest/{projectRef}/* (JWT auth)'
+    url: http://studio:3000/api/v1/projects/rest/
     routes:
-      - name: rest-v1-all
+      - name: rest-v1-projects-all
         strip_path: true
         paths:
-          - /rest/v1/
+          - /rest/v1/projects/
+        regex_priority: 400  # Higher priority than legacy routes
     plugins:
       - name: cors
         config:
@@ -449,10 +414,54 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
+      - name: key-auth
+        config:
+          hide_credentials: true
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+            - authenticated
+
+  ## Legacy global REST routes (backward compatibility)
+  - name: rest-v1
+    _comment: 'Enhanced PostgREST: /rest/v1/* -> http://rest:3000/* (Enhanced container with advanced features)'
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-all
+        strip_path: true
+        paths:
+          - /rest/v1/
+        regex_priority: 100  # Lower priority than project-specific routes
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
+            - x-supabase-api-version
+            - apikey
       - name: key-auth
         config:
           hide_credentials: true
@@ -499,10 +508,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: true
@@ -555,10 +560,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -604,10 +605,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -653,10 +650,60 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
+
+  ## Edge Functions Health route (public access)
+  - name: functions-v1-health
+    _comment: 'Edge Functions Health: /functions/v1/health -> http://functions:9000/health (public access)'
+    url: http://functions:9000/health
+    routes:
+      - name: functions-v1-health
+        strip_path: true
+        paths:
+          - /functions/v1/health
+        methods:
+          - GET
+          - OPTIONS
+        # Ensure this route has higher priority than the generic functions-v1 route
+        regex_priority: 100
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://localhost:8080"
+            - "http://127.0.0.1:3000"
+            - "http://127.0.0.1:8080"
+            - "http://localhost:8000"
+            - "http://127.0.0.1:8000"
+            - "~*https://.*\\.cloudfront\\.net$"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+            - HEAD
+          headers:
+            - user-agent
+            - content-type
+            - authorization
+            - x-client-info
+            - apikey
+            - x-supabase-api-version
+            - cache-control
+            - pragma
+            - accept
+            - accept-language
+            - accept-encoding
+            - x-requested-with
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - Authorization
+            - X-Requested-With
 
   ## Edge Functions routes
   - name: functions-v1
@@ -672,7 +719,9 @@ services:
         config:
           origins:
             - "http://localhost:3000"
+            - "http://localhost:8080"
             - "http://127.0.0.1:3000"
+            - "http://127.0.0.1:8080"
             - "http://localhost:8000"
             - "http://127.0.0.1:8000"
             - "~*https://.*\\.cloudfront\\.net$"
@@ -683,6 +732,7 @@ services:
             - PATCH
             - DELETE
             - OPTIONS
+            - HEAD
           headers:
             - Accept
             - Accept-Version
@@ -690,14 +740,18 @@ services:
             - Content-MD5
             - Content-Type
             - Date
+            - user-agent
+            - authorization
+            - x-client-info
+            - apikey
+            - x-supabase-api-version
+            - cache-control
+            - pragma
+            - accept-language
+            - accept-encoding
+            - x-requested-with
             - Authorization
             - X-Requested-With
-            - x-supabase-api-version
-            - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
 
   ## Analytics routes
   - name: analytics-v1
@@ -808,10 +862,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
 
   - name: studio-platform-signin
     _comment: 'Studio Platform Signin: /api/platform/signin -> http://studio:3000/api/platform/signin (public access)'
@@ -850,10 +900,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
 
   ## Studio API routes - catch all /api/* (no authentication required for self-hosted)
   - name: studio-api-all
@@ -891,10 +937,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
 
   ## Protected Dashboard - catch all remaining routes
   - name: dashboard
@@ -932,11 +974,6 @@ services:
             - X-Requested-With
             - x-supabase-api-version
             - apikey
-          exposed_headers:
-            - X-Auth-Token
-          credentials: true
-          max_age: 3600
       # Basic auth disabled for open access
       # - name: basic-auth
       #   config:
-      #     hide_credentials: true

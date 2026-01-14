@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SubmitHandler, useFieldArray, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import z from 'zod'
@@ -36,8 +36,9 @@ const FormSchema = z.object({
       name: z
         .string()
         .min(1, 'Please provide a name for your secret')
-        .refine((value) => !value.match(/^(SUPABASE_).*/), {
-          message: 'Name must not start with the SUPABASE_ prefix',
+        .max(100, 'Secret name must not exceed 100 characters')
+        .refine((value) => /^[a-zA-Z0-9_]+$/.test(value), {
+          message: 'Name must contain only letters, numbers, and underscores (e.g., my_secret, MY_SECRET, secret123)',
         }),
       value: z.string().min(1, 'Please provide a value for your secret'),
     })
@@ -181,7 +182,7 @@ const AddNewSecretForm = () => {
                         <FormControl_Shadcn_>
                           <Input
                             {...field}
-                            placeholder="e.g. CLIENT_KEY"
+                            placeholder="e.g. my_secret or MY_SECRET"
                             onPaste={(e) => handlePaste(e.nativeEvent)}
                           />
                         </FormControl_Shadcn_>
@@ -247,7 +248,7 @@ const AddNewSecretForm = () => {
             </CardContent>
             <CardFooter className="justify-between space-x-2">
               <p className="text-sm text-foreground-lighter">
-                Insert or update multiple secrets at once by pasting key-value pairs
+                Secret names can contain letters, numbers, and underscores (e.g., my_secret, MY_SECRET, secret123). Insert or update multiple secrets at once by pasting key-value pairs.
               </p>
 
               <Button type="primary" htmlType="submit" disabled={isCreating} loading={isCreating}>

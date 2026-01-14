@@ -13,7 +13,9 @@ import { Alert_Shadcn_, AlertTitle_Shadcn_, Badge, Card, CardContent, CardHeader
 import { Input } from 'ui-patterns/DataInputs/Input'
 import { FormLayout } from 'ui-patterns/form/Layout/FormLayout'
 import ShimmeringLoader from 'ui-patterns/ShimmeringLoader'
-import { PostgrestConfig } from './PostgrestConfig'
+import { OptimizedPostgrestConfig } from './OptimizedPostgrestConfig'
+import { EnhancedRestApiSettings } from './EnhancedRestApiSettings'
+import { RestApiMonitoringDashboard } from './RestApiMonitoringDashboard'
 
 export const ServiceList = () => {
   const { data: project, isLoading } = useSelectedProjectQuery()
@@ -101,7 +103,11 @@ export const ServiceList = () => {
             </CardContent>
           </Card>
 
-          <PostgrestConfig />
+          <OptimizedPostgrestConfig />
+
+          <EnhancedRestApiSettings />
+
+          <RestApiMonitoringDashboard />
         </>
       )}
     </ScaffoldSection>

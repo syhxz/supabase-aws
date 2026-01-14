@@ -1,0 +1,84 @@
+# Kubernetes ConfigMap for Supabase Configuration
+# Requirements: 13.1, 13.2, 13.3
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supabase-config
+  namespace: supabase
+  labels:
+    app: supabase
+    component: config
+data:
+  # Database configuration
+  db-schemas: "public"
+  
+  # Performance settings
+  db-max-rows: "2000"
+  db-pool: "20"
+  db-pool-timeout: "15"
+  db-pool-acquisition-timeout: "15"
+  server-host: "0.0.0.0"
+  server-port: "3000"
+  db-prepared-statements: "true"
+  db-config: "true"
+  db-root-spec: "true"
+  log-level: "warn"
+  server-trace-header: "X-Request-ID"
+  db-schema-cache-size: "200"
+  
+  # Enhanced features
+  enhanced-rpc-enabled: "true"
+  enhanced-json-ops-enabled: "true"
+  enhanced-fts-enabled: "true"
+  enhanced-aggregates-enabled: "true"
+  enhanced-bulk-ops-enabled: "true"
+  enhanced-transactions-enabled: "true"
+  enhanced-array-ops-enabled: "true"
+  
+  # Cache configuration
+  enhanced-response-cache-enabled: "true"
+  enhanced-response-cache-ttl: "600"
+  
+  # Query complexity limits
+  enhanced-max-query-complexity: "2000"
+  enhanced-max-nested-depth: "7"
+  enhanced-max-bulk-size: "2000"
+  
+  # Monitoring
+  enhanced-metrics-enabled: "true"
+  enhanced-metrics-port: "9090"
+  enhanced-metrics-interval: "60"
+  enhanced-health-check-enabled: "true"
+  enhanced-memory-limit-mb: "1024"
+  enhanced-min-disk-space-mb: "200"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: supabase-secrets
+  namespace: supabase
+  labels:
+    app: supabase
+    component: secrets
+type: Opaque
+stringData:
+  # Database connection (replace with actual values)
+  database-uri: "postgres://authenticator:your-password@postgres:5432/postgres"
+  
+  # JWT configuration (replace with actual values)
+  jwt-secret: "your-jwt-secret-key-here"
+  
+  # Service keys (replace with actual values)
+  anon-key: "your-anon-key-here"
+  service-role-key: "your-service-role-key-here"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: supabase
+  labels:
+    name: supabase
+    app: supabase

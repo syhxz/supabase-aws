@@ -204,7 +204,9 @@ function validateEnvironmentConfiguration(): {
   const publicUrl = process.env.SUPABASE_PUBLIC_URL
   const internalUrl = process.env.SUPABASE_URL
   const apiUrl = process.env.API_EXTERNAL_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // In server-side API routes, NEXT_PUBLIC_ variables are only available if set at build time
+  // So we need to read from the runtime environment variables first
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
   // First pass environment detection without URLs
   let environment = determineEnvironment()
@@ -418,7 +420,9 @@ function resolveConfiguration(): RuntimeConfig | RuntimeConfigError {
   const apiUrl = apiUrls.clientSide
 
   // Get anon key
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  // In server-side API routes, NEXT_PUBLIC_ variables are only available if set at build time
+  // So we need to read from the runtime environment variables first
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
   // Re-detect environment with resolved URLs for more accurate detection
   environment = determineEnvironment({ gotrueUrl, supabaseUrl, apiUrl })

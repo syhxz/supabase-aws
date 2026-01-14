@@ -15,7 +15,7 @@ export async function deleteSecrets({ projectRef, secrets }: SecretsDeleteVariab
 
   const { data, error } = await del('/v1/projects/{ref}/secrets', {
     params: { path: { ref: projectRef } },
-    body: secrets,
+    body: { secretNames: secrets },
   })
 
   if (error) handleError(error)

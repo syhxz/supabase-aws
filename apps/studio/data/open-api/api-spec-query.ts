@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { get, handleError } from 'data/fetchers'
+import { handleError } from 'data/fetchers'
 import type { ResponseError, UseCustomQueryOptions } from 'types'
 import { openApiKeys } from './keys'
 
@@ -17,38 +17,27 @@ export type OpenAPISpecResponse = {
 export async function getOpenAPISpec({ projectRef }: OpenAPISpecVariables, signal?: AbortSignal) {
   if (!projectRef) throw new Error('projectRef is required')
 
-  const { data, error } = await get(`/platform/projects/{ref}/api/rest`, {
-    params: { path: { ref: projectRef } },
-    signal,
-  })
-
-  if (error) handleError(error)
-
-  const definitions = (data as any).definitions
-  const tables = definitions
-    ? Object.entries(definitions).map(([key, table]: any) => ({
-        ...table,
-        name: key,
-        fields: Object.entries(table.properties || {}).map(([key, field]: any) => ({
-          ...field,
-          name: key,
-        })),
-      }))
-    : []
-
-  const paths = (data as any).paths
-  const functions = paths
-    ? Object.entries(paths)
-        .map(([path, value]: any) => ({
-          ...value,
-          path,
-          name: path.replace('/rpc/', ''),
-        }))
-        .filter((x) => x.path.includes('/rpc'))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    : []
-
-  return { data: data, tables, functions }
+  // In self-hosted mode, use the custom OpenAPI schema generator endpoint
+  // This bypasses PostgREST's db-root-spec feature which has issues
+  try {
+    const response = await fetch(`/api/openapi-schema`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal,
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OpenAPI schema: ${response.status} ${response.statusText}`)
+    }
+    
+    const result = await response.json()
+    return result
+  } catch (error) {
+    handleError(error)
+    throw error
+  }
 }
 
 export type OpenAPISpecData = Awaited<OpenAPISpecResponse>

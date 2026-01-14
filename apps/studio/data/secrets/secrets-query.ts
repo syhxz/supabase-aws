@@ -20,7 +20,9 @@ export async function getSecrets({ projectRef }: SecretsVariables, signal?: Abor
   })
 
   if (error) handleError(error)
-  return data
+  
+  // Return the secrets array from the response
+  return data?.secrets || []
 }
 
 export type SecretsData = Awaited<ReturnType<typeof getSecrets>>

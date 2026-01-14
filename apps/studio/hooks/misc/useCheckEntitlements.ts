@@ -86,7 +86,7 @@ export function useCheckEntitlements(
     if (!finalOrgSlug) return { entitlement: null }
 
     const entitlement = entitlementsData?.entitlements.find(
-      (entitlement) => entitlement.feature.key === featureKey
+      (entitlement) => entitlement.feature?.key === featureKey
     )
 
     return {

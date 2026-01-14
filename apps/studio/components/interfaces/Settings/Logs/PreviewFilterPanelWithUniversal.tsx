@@ -182,6 +182,12 @@ export const PreviewFilterPanelWithUniversal = ({
 
     // Add table-specific filters
     Object.entries(tableFilters).forEach(([key, filterSet]) => {
+      // Ensure filterSet is valid
+      if (!filterSet || typeof filterSet !== 'object' || !filterSet.key || !filterSet.label || !Array.isArray(filterSet.options)) {
+        console.warn('Invalid filter set found for key:', key, filterSet)
+        return
+      }
+
       properties.push({
         label: filterSet.label,
         name: filterSet.key,

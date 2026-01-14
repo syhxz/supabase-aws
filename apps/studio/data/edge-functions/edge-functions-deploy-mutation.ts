@@ -8,6 +8,8 @@ import {
   getStaticPatterns,
 } from 'components/interfaces/EdgeFunctions/EdgeFunctions.utils'
 import { handleError, post } from 'data/fetchers'
+import { IS_PLATFORM } from 'lib/constants'
+import { platformDetectionService } from 'lib/platform-detection'
 import type { ResponseError, UseCustomMutationOptions } from 'types'
 import { edgeFunctionsKeys } from './keys'
 
@@ -34,29 +36,93 @@ export async function deployEdgeFunction({
   if (!_metadata.import_map_path) metadata.import_map_path = getFallbackImportMapPath(files)
   if (!_metadata.static_patterns) metadata.static_patterns = getStaticPatterns(files)
 
-  const { data, error } = await post(`/v1/projects/{ref}/functions/deploy`, {
-    params: { path: { ref: projectRef }, query: { slug: slug } },
-    body: {
-      file: files as any,
-      metadata: metadata as EdgeFunctionsDeployBodyMetadata,
-    },
-    bodySerializer(body) {
-      const formData = new FormData()
+  // For self-hosted environments, validate Edge Functions service availability
+  if (!IS_PLATFORM) {
+    const serviceStatus = await platformDetectionService.validateLocalServices()
+    
+    if (!serviceStatus.available) {
+      throw new Error(
+        `Edge Functions service is not available: ${serviceStatus.error || 'Service unreachable'}. ` +
+        'Please ensure the Edge Functions container is running and accessible.'
+      )
+    }
+  }
 
-      formData.append('metadata', JSON.stringify(body.metadata))
+  try {
+    const { data, error } = await post(`/v1/projects/{ref}/functions/deploy`, {
+      params: { path: { ref: projectRef }, query: { slug: slug } },
+      body: {
+        file: files as any,
+        metadata: metadata as EdgeFunctionsDeployBodyMetadata,
+      },
+      bodySerializer(body) {
+        const formData = new FormData()
 
-      body?.file?.forEach((f: any) => {
-        const file = f as { name: string; content: string }
-        const blob = new Blob([file.content], { type: 'text/plain' })
-        formData.append('file', blob, file.name)
-      })
+        formData.append('metadata', JSON.stringify(body.metadata))
 
-      return formData
-    },
-  })
+        body?.file?.forEach((f: any) => {
+          const file = f as { name: string; content: string }
+          const blob = new Blob([file.content], { type: 'text/plain' })
+          formData.append('file', blob, file.name)
+        })
 
-  if (error) handleError(error)
-  return data
+        return formData
+      },
+    })
+
+    if (error) {
+      // Enhanced error handling for self-hosted deployments
+      if (!IS_PLATFORM) {
+        // Provide more specific error messages for self-hosted environments
+        if (error.message?.includes('ECONNREFUSED') || error.message?.includes('fetch failed')) {
+          throw new Error(
+            'Failed to connect to Edge Functions service. Please ensure the Edge Functions container is running and accessible.'
+          )
+        }
+        
+        if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+          throw new Error(
+            'Edge Functions deployment endpoint not found. Please check your Edge Functions service configuration.'
+          )
+        }
+        
+        if (error.message?.includes('500') || error.message?.includes('Internal Server Error')) {
+          throw new Error(
+            'Edge Functions service encountered an internal error. Please check the service logs for more details.'
+          )
+        }
+      }
+      
+      handleError(error)
+    }
+    
+    return data
+  } catch (deploymentError) {
+    // Additional error handling for deployment-specific issues
+    if (!IS_PLATFORM) {
+      const errorMessage = deploymentError instanceof Error ? deploymentError.message : 'Unknown deployment error'
+      
+      // Check if it's a network connectivity issue
+      if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
+        throw new Error(
+          'Cannot connect to Edge Functions service. Please verify that:\n' +
+          '1. The Edge Functions container is running\n' +
+          '2. The service is accessible at the configured endpoint\n' +
+          '3. Network connectivity is working properly'
+        )
+      }
+      
+      // Check if it's a service configuration issue
+      if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('getaddrinfo')) {
+        throw new Error(
+          'Edge Functions service hostname could not be resolved. Please check your EDGE_FUNCTIONS_URL configuration.'
+        )
+      }
+    }
+    
+    // Re-throw the original error if we can't provide a better message
+    throw deploymentError
+  }
 }
 
 type EdgeFunctionsDeployData = Awaited<ReturnType<typeof deployEdgeFunction>>
@@ -84,7 +150,25 @@ export const useEdgeFunctionDeployMutation = ({
     },
     async onError(data, variables, context) {
       if (onError === undefined) {
-        toast.error(`Failed to deploy edge function: ${data.message}`)
+        // Enhanced error messages for self-hosted deployments
+        let errorMessage = `Failed to deploy edge function: ${data.message}`
+        
+        if (!IS_PLATFORM) {
+          // Provide more helpful error messages for self-hosted environments
+          if (data.message?.includes('Edge Functions service is not available')) {
+            errorMessage = 'Edge Functions service is not available. Please ensure the service is running and accessible.'
+          } else if (data.message?.includes('Cannot connect to Edge Functions service')) {
+            errorMessage = 'Cannot connect to Edge Functions service. Please check your service configuration and network connectivity.'
+          } else if (data.message?.includes('hostname could not be resolved')) {
+            errorMessage = 'Edge Functions service hostname could not be resolved. Please check your EDGE_FUNCTIONS_URL configuration.'
+          } else if (data.message?.includes('deployment endpoint not found')) {
+            errorMessage = 'Edge Functions deployment endpoint not found. Please verify your service configuration.'
+          } else if (data.message?.includes('internal error')) {
+            errorMessage = 'Edge Functions service encountered an error. Please check the service logs for more details.'
+          }
+        }
+        
+        toast.error(errorMessage)
       } else {
         onError(data, variables, context)
       }

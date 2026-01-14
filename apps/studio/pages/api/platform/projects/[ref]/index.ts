@@ -127,16 +127,6 @@ const handleDelete = async (req: NextApiRequest, res: NextApiResponse, context: 
       })
     }
 
-    // Cannot delete 'default' project
-    if (ref === 'default') {
-      console.warn('[Project API] Attempt to delete default project - returning 400')
-      return res.status(400).json({ 
-        error: { 
-          message: 'Cannot delete default project' 
-        } 
-      })
-    }
-
     try {
       // Step 1: Find the project to get its details
       const projectResult = await findProjectByRef(ref)

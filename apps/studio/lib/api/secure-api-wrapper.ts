@@ -15,6 +15,11 @@ import {
   handleApiError, 
   createErrorContext 
 } from './error-handling'
+import {
+  createErrorHandlingMiddleware,
+  RequestValidationRules,
+  PerformanceLimits
+} from './enhanced-error-middleware'
 
 // Re-export types for use in API handlers
 export type { ProjectIsolationContext, PermissionRequirements } from './project-isolation-middleware'
@@ -29,6 +34,18 @@ export interface SecurityConfig {
   validateDataOwnership?: boolean
   /** Custom validation function */
   customValidation?: (context: ProjectIsolationContext) => Promise<void>
+}
+
+/**
+ * Enhanced security configuration with error handling
+ */
+export interface EnhancedSecurityConfig extends SecurityConfig {
+  /** Enhanced error handling configuration */
+  errorHandling?: {
+    validation?: RequestValidationRules
+    performance?: PerformanceLimits
+    contentTypes?: string[]
+  }
 }
 
 /**
@@ -195,9 +212,66 @@ export function withSecureDeleteAccess<T = any>(
 }
 
 /**
- * Method-based security wrapper that automatically selects appropriate permissions
- * based on HTTP method
+ * Enhanced API wrapper with comprehensive security and error handling
+ * 
+ * This wrapper provides:
+ * - All security features from withSecureProjectAccess
+ * - Enhanced error handling with PostgREST compatibility
+ * - Request validation
+ * - Performance monitoring
+ * - Content negotiation
+ * 
+ * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
  */
+export function withSecureApiWrapper<T = any>(
+  handler: (req: NextApiRequest, res: NextApiResponse) => Promise<T>,
+  config: EnhancedSecurityConfig & {
+    requireProjectContext?: boolean
+    requireDataApiAccess?: boolean
+  } = {}
+) {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    // Apply error handling middleware if configured
+    if (config.errorHandling) {
+      const middlewares = createErrorHandlingMiddleware(config.errorHandling)
+      
+      // Apply middlewares in sequence
+      for (const middleware of middlewares) {
+        await new Promise<void>((resolve, reject) => {
+          middleware(req, res, () => {
+            if (res.headersSent) {
+              reject(new Error('Response already sent'))
+            } else {
+              resolve()
+            }
+          })
+        })
+        
+        // If response was sent by middleware, stop processing
+        if (res.headersSent) {
+          return
+        }
+      }
+    }
+
+    // If project context is required, wrap with project isolation
+    if (config.requireProjectContext) {
+      const secureHandler = withSecureProjectAccess(
+        async (req: NextApiRequest, res: NextApiResponse, context: ProjectIsolationContext) => {
+          // Inject project context into request for handler access
+          ;(req as any).projectContext = context
+          return handler(req, res)
+        },
+        config
+      )
+      
+      return secureHandler(req, res)
+    } else {
+      // Execute handler directly
+      return handler(req, res)
+    }
+  }
+}
 export function withMethodBasedSecurity<T = any>(
   handler: SecureApiHandler<T>,
   config: Omit<SecurityConfig, 'permissions'> = {}
@@ -231,9 +305,7 @@ export function withMethodBasedSecurity<T = any>(
   }
 }
 
-/**
- * Utility function to check if user has specific permission
- */
+
 export function hasPermission(
   context: ProjectIsolationContext,
   permission: keyof ProjectIsolationContext['permissions']
@@ -373,3 +445,9 @@ export const SecurityConfigs = {
     customValidation: SecurityValidators.requireOwnership
   } as SecurityConfig
 }
+
+/**
+ * Legacy alias for backward compatibility
+ * @deprecated Use withSecureApiWrapper instead
+ */
+export const createSecureApiWrapper = withSecureApiWrapper

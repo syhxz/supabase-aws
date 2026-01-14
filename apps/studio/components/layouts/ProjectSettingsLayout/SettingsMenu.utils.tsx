@@ -28,6 +28,12 @@ export const generateSettingsMenu = (
         title: 'Project Settings',
         items: [
           {
+            name: 'Data API',
+            key: 'api',
+            url: `/project/${ref}/settings/api`,
+            items: [],
+          },
+          {
             name: 'API Keys',
             key: 'api-keys',
             url: `/project/${ref}/settings/api-keys/new`,

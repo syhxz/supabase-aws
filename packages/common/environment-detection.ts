@@ -8,6 +8,17 @@
 import { analyzeEnvironmentForErrors, logConfigurationError } from './error-handling-guidance'
 
 /**
+ * No-op logging functions to disable verbose environment detection logs
+ */
+const envLog = (...args: any[]): void => {
+  // Environment detection logging disabled
+}
+
+const envWarn = (...args: any[]): void => {
+  // Environment detection warnings disabled
+}
+
+/**
  * Supported environment types
  */
 export type Environment = 'development' | 'production' | 'staging'
@@ -152,18 +163,18 @@ function detectBuildTimeContext(): DetectionPhaseInfo {
       const missingCriticalVars = criticalEnvVars.filter(varName => !process.env[varName])
       
       if (missingCriticalVars.length > 0) {
-        console.warn(`[Environment Detection] ⚠️  Docker build missing critical environment variables: ${missingCriticalVars.join(', ')}`)
-        console.warn(`[Environment Detection] 💡 Add ARG declarations in Dockerfile: ${missingCriticalVars.map(v => `ARG ${v}`).join(', ')}`)
-        console.warn(`[Environment Detection] 💡 Pass variables during build: docker build ${missingCriticalVars.map(v => `--build-arg ${v}=$${v}`).join(' ')}`)
+        envWarn(`[Environment Detection] ⚠️  Docker build missing critical environment variables: ${missingCriticalVars.join(', ')}`)
+        envWarn(`[Environment Detection] 💡 Add ARG declarations in Dockerfile: ${missingCriticalVars.map(v => `ARG ${v}`).join(', ')}`)
+        envWarn(`[Environment Detection] 💡 Pass variables during build: docker build ${missingCriticalVars.map(v => `--build-arg ${v}=$${v}`).join(' ')}`)
       }
       
       // Validate that ENVIRONMENT variable is accessible during build if set
       const buildEnv = process.env.NEXT_PUBLIC_ENVIRONMENT || process.env.ENVIRONMENT
       if (buildEnv) {
-        console.log(`[Environment Detection] ✅ ENVIRONMENT variable available during Docker build: ${buildEnv}`)
+        envLog(`[Environment Detection] ✅ ENVIRONMENT variable available during Docker build: ${buildEnv}`)
       } else {
-        console.warn(`[Environment Detection] ⚠️  ENVIRONMENT variable not available during Docker build`)
-        console.warn(`[Environment Detection] 💡 To fix: Add 'ARG ENVIRONMENT' and 'ENV ENVIRONMENT=\${ENVIRONMENT}' to Dockerfile`)
+        envWarn(`[Environment Detection] ⚠️  ENVIRONMENT variable not available during Docker build`)
+        envWarn(`[Environment Detection] 💡 To fix: Add 'ARG ENVIRONMENT' and 'ENV ENVIRONMENT=\${ENVIRONMENT}' to Dockerfile`)
       }
     }
   }
@@ -757,36 +768,36 @@ export function detectEnvironment(runtimeUrls?: {
   const networkEnvironment = detectNetworkEnvironment()
   
   // Log detection start
-  console.log(`[Environment Detection] 🔍 Starting environment detection at ${timestamp}`)
-  console.log(`[Environment Detection] Phase: ${detectionPhase.isBuildTime ? 'BUILD-TIME' : 'RUNTIME'}`)
+  envLog(`[Environment Detection] 🔍 Starting environment detection at ${timestamp}`)
+  envLog(`[Environment Detection] Phase: ${detectionPhase.isBuildTime ? 'BUILD-TIME' : 'RUNTIME'}`)
   if (detectionPhase.buildContext) {
-    console.log(`[Environment Detection] Build context: ${detectionPhase.buildContext}`)
+    envLog(`[Environment Detection] Build context: ${detectionPhase.buildContext}`)
   }
   
   // Log all environment variables checked
-  console.log(`[Environment Detection] 📋 Environment Variables Analyzed:`)
+  envLog(`[Environment Detection] 📋 Environment Variables Analyzed:`)
   environmentVariables.forEach(envVar => {
     const status = envVar.available ? '✓' : '✗'
     const value = envVar.available ? envVar.value : 'NOT SET'
-    console.log(`[Environment Detection]   ${status} ${envVar.name}: ${value}`)
+    envLog(`[Environment Detection]   ${status} ${envVar.name}: ${value}`)
   })
   
   // Log missing variables
   if (missingVariables.length > 0) {
-    console.log(`[Environment Detection] ⚠️  Missing Variables (${missingVariables.length}):`)
+    envLog(`[Environment Detection] ⚠️  Missing Variables (${missingVariables.length}):`)
     missingVariables.forEach(varName => {
-      console.log(`[Environment Detection]   • ${varName}`)
+      envLog(`[Environment Detection]   • ${varName}`)
     })
   }
   
   // Log priority chain
-  console.log(`[Environment Detection] 🔗 Priority Chain Analysis:`)
+  envLog(`[Environment Detection] 🔗 Priority Chain Analysis:`)
   priorityChain.forEach(item => {
     const status = item.selected ? '🎯 SELECTED' : item.available ? '⏭️  AVAILABLE' : '❌ UNAVAILABLE'
-    console.log(`[Environment Detection]   ${item.priority}. ${item.source}: ${status}`)
-    console.log(`[Environment Detection]      Reason: ${item.reason}`)
+    envLog(`[Environment Detection]   ${item.priority}. ${item.source}: ${status}`)
+    envLog(`[Environment Detection]      Reason: ${item.reason}`)
     if (item.value) {
-      console.log(`[Environment Detection]      Value: ${item.value}`)
+      envLog(`[Environment Detection]      Value: ${item.value}`)
     }
   })
   
@@ -806,46 +817,46 @@ export function detectEnvironment(runtimeUrls?: {
     
     // Enhanced logging for production environment detection (Requirement 1.4)
     if (environment === 'production') {
-      console.log(`[Environment Detection] ✅ PRODUCTION environment detected via ENVIRONMENT variable`)
-      console.log(`[Environment Detection] 🎯 ENVIRONMENT=production takes priority over NODE_ENV and URL patterns`)
+      envLog(`[Environment Detection] ✅ PRODUCTION environment detected via ENVIRONMENT variable`)
+      envLog(`[Environment Detection] 🎯 ENVIRONMENT=production takes priority over NODE_ENV and URL patterns`)
     } else if (environment === 'development') {
-      console.log(`[Environment Detection] ✅ DEVELOPMENT environment detected via ENVIRONMENT variable`)
+      envLog(`[Environment Detection] ✅ DEVELOPMENT environment detected via ENVIRONMENT variable`)
     } else if (environment === 'staging') {
-      console.log(`[Environment Detection] ✅ STAGING environment detected via ENVIRONMENT variable`)
+      envLog(`[Environment Detection] ✅ STAGING environment detected via ENVIRONMENT variable`)
     }
     
-    console.log(`[Environment Detection] ✅ Environment determined by ENVIRONMENT variable: ${environment.toUpperCase()}`)
+    envLog(`[Environment Detection] ✅ Environment determined by ENVIRONMENT variable: ${environment.toUpperCase()}`)
   }
   // Priority 2: Check NODE_ENV with improved logic (only if ENVIRONMENT not set)
   else {
     const nodeEnv = process.env.NODE_ENV?.toLowerCase()
     
-    console.log(`[Environment Detection] 📋 ENVIRONMENT variable not set, checking NODE_ENV: ${nodeEnv || 'NOT SET'}`)
+    envLog(`[Environment Detection] 📋 ENVIRONMENT variable not set, checking NODE_ENV: ${nodeEnv || 'NOT SET'}`)
     
     // If NODE_ENV is explicitly set to development, always respect it
     if (nodeEnv === 'development') {
       environment = 'development'
       detectionMethod = 'node-env'
       context = 'NODE_ENV=development (ENVIRONMENT variable not set)'
-      console.log(`[Environment Detection] ✅ Environment determined by NODE_ENV: ${environment.toUpperCase()}`)
+      envLog(`[Environment Detection] ✅ Environment determined by NODE_ENV: ${environment.toUpperCase()}`)
     }
     // Priority 2.5: Check IS_PLATFORM flag (before NODE_ENV=production processing)
     else {
       const isPlatform = process.env.NEXT_PUBLIC_IS_PLATFORM === 'true'
       
-      console.log(`[Environment Detection] 📋 NODE_ENV not development, checking IS_PLATFORM: ${process.env.NEXT_PUBLIC_IS_PLATFORM || 'NOT SET'}`)
+      envLog(`[Environment Detection] 📋 NODE_ENV not development, checking IS_PLATFORM: ${process.env.NEXT_PUBLIC_IS_PLATFORM || 'NOT SET'}`)
       
       // Platform instances are production by default
       if (isPlatform) {
         environment = 'production'
         detectionMethod = 'platform-flag'
         context = 'NEXT_PUBLIC_IS_PLATFORM=true indicates production platform environment (ENVIRONMENT and NODE_ENV not set)'
-        console.log(`[Environment Detection] ✅ PRODUCTION environment detected via platform flag`)
-        console.log(`[Environment Detection] ✅ Environment determined by platform flag: ${environment.toUpperCase()}`)
+        envLog(`[Environment Detection] ✅ PRODUCTION environment detected via platform flag`)
+        envLog(`[Environment Detection] ✅ Environment determined by platform flag: ${environment.toUpperCase()}`)
       }
       // Priority 3: Check URL patterns first when NODE_ENV=production
       else if (nodeEnv === 'production') {
-        console.log(`[Environment Detection] 📋 NODE_ENV=production detected, validating with URL patterns (ENVIRONMENT and IS_PLATFORM not set)`)
+        envLog(`[Environment Detection] 📋 NODE_ENV=production detected, validating with URL patterns (ENVIRONMENT and IS_PLATFORM not set)`)
         
         // Get URLs for pattern checking
         const supabaseUrl = runtimeUrls?.supabaseUrl || process.env.SUPABASE_PUBLIC_URL || process.env.SUPABASE_URL || ''
@@ -863,7 +874,7 @@ export function detectEnvironment(runtimeUrls?: {
           runtimeUrls?.apiUrl
         ].filter(Boolean)
         
-        console.log(`[Environment Detection] 🔍 Analyzing ${urls.length} URLs for localhost patterns`)
+        envLog(`[Environment Detection] 🔍 Analyzing ${urls.length} URLs for localhost patterns`)
         
         const hasLocalhostUrls = urls.some(url => 
           url && (/localhost|127\.0\.0\.1|0\.0\.0\.0/.test(url) || url.includes(':54321') || url.includes(':8000'))
@@ -874,8 +885,8 @@ export function detectEnvironment(runtimeUrls?: {
           environment = 'development'
           detectionMethod = 'url-pattern'
           context = 'Forced to development due to localhost URL (NODE_ENV=production overridden for safety - ENVIRONMENT variable would prevent this override)'
-          console.log(`[Environment Detection] ⚠️  NODE_ENV=production overridden by localhost URLs: ${environment.toUpperCase()}`)
-          console.log(`[Environment Detection] 💡 To force production: Set ENVIRONMENT=production (takes priority over URL patterns)`)
+          envLog(`[Environment Detection] ⚠️  NODE_ENV=production overridden by localhost URLs: ${environment.toUpperCase()}`)
+          envLog(`[Environment Detection] 💡 To force production: Set ENVIRONMENT=production (takes priority over URL patterns)`)
         }
         // Check for staging indicators
         else {
@@ -892,7 +903,7 @@ export function detectEnvironment(runtimeUrls?: {
             context = runtimeUrls
               ? `Detected staging pattern (${stagingPatterns.join('|')}) in runtime URLs`
               : `Detected staging pattern (${stagingPatterns.join('|')}) in environment variables`
-            console.log(`[Environment Detection] ✅ Environment determined by URL staging patterns: ${environment.toUpperCase()}`)
+            envLog(`[Environment Detection] ✅ Environment determined by URL staging patterns: ${environment.toUpperCase()}`)
           } else {
             // Check if URLs indicate production patterns (HTTPS, domains, etc.)
             const hasProductionUrls = urls.some(url => {
@@ -916,14 +927,14 @@ export function detectEnvironment(runtimeUrls?: {
               : 'NODE_ENV=production with default configuration (ENVIRONMENT variable would provide more explicit control)'
             
             // Enhanced logging for production environment detection (Requirement 1.4)
-            console.log(`[Environment Detection] ✅ PRODUCTION environment detected via NODE_ENV=production`)
+            envLog(`[Environment Detection] ✅ PRODUCTION environment detected via NODE_ENV=production`)
             if (hasProductionUrls) {
-              console.log(`[Environment Detection] ✅ Production URLs confirmed NODE_ENV=production`)
+              envLog(`[Environment Detection] ✅ Production URLs confirmed NODE_ENV=production`)
             } else {
-              console.log(`[Environment Detection] ⚠️  NODE_ENV=production with no explicit production URLs`)
-              console.log(`[Environment Detection] 💡 Consider setting ENVIRONMENT=production for explicit control`)
+              envLog(`[Environment Detection] ⚠️  NODE_ENV=production with no explicit production URLs`)
+              envLog(`[Environment Detection] 💡 Consider setting ENVIRONMENT=production for explicit control`)
             }
-            console.log(`[Environment Detection] ✅ Environment determined by NODE_ENV=production: ${environment.toUpperCase()}`)
+            envLog(`[Environment Detection] ✅ Environment determined by NODE_ENV=production: ${environment.toUpperCase()}`)
           }
         }
       }
@@ -985,7 +996,7 @@ export function detectEnvironment(runtimeUrls?: {
           context = runtimeUrls 
             ? 'Detected localhost/127.0.0.1/0.0.0.0 in runtime URLs'
             : 'Detected localhost/127.0.0.1/0.0.0.0 in URLs or browser location'
-          console.log(`[Environment Detection] ✅ Environment determined by localhost URLs: ${environment.toUpperCase()}`)
+          envLog(`[Environment Detection] ✅ Environment determined by localhost URLs: ${environment.toUpperCase()}`)
         }
         // Check for staging indicators
         else {
@@ -1002,7 +1013,7 @@ export function detectEnvironment(runtimeUrls?: {
             context = runtimeUrls
               ? `Detected staging pattern (${stagingPatterns.join('|')}) in runtime URLs`
               : `Detected staging pattern (${stagingPatterns.join('|')}) in URLs`
-            console.log(`[Environment Detection] ✅ Environment determined by staging URL patterns: ${environment.toUpperCase()}`)
+            envLog(`[Environment Detection] ✅ Environment determined by staging URL patterns: ${environment.toUpperCase()}`)
           }
           // Check for production indicators in URLs
           else {
@@ -1040,24 +1051,24 @@ export function detectEnvironment(runtimeUrls?: {
               context = runtimeUrls
                 ? 'Detected production URLs (external IPs, domains, or HTTPS) in runtime URLs'
                 : 'Detected production URLs (external IPs, domains, or HTTPS) in environment variables'
-              console.log(`[Environment Detection] ✅ Environment determined by production URL patterns: ${environment.toUpperCase()}`)
+              envLog(`[Environment Detection] ✅ Environment determined by production URL patterns: ${environment.toUpperCase()}`)
             }
             // Final fallback to NODE_ENV if set
             else if (nodeEnv === 'production') {
               environment = 'production'
               detectionMethod = 'node-env'
               context = 'NODE_ENV=production fallback (no URL patterns detected, ENVIRONMENT variable would provide explicit control)'
-              console.log(`[Environment Detection] ✅ PRODUCTION environment detected via NODE_ENV fallback`)
-              console.log(`[Environment Detection] 💡 For explicit control, set ENVIRONMENT=production`)
-              console.log(`[Environment Detection] ✅ Environment determined by NODE_ENV fallback: ${environment.toUpperCase()}`)
+              envLog(`[Environment Detection] ✅ PRODUCTION environment detected via NODE_ENV fallback`)
+              envLog(`[Environment Detection] 💡 For explicit control, set ENVIRONMENT=production`)
+              envLog(`[Environment Detection] ✅ Environment determined by NODE_ENV fallback: ${environment.toUpperCase()}`)
             }
             // Default to production for safety
             else {
               environment = 'production'
               detectionMethod = 'default'
               context = 'No clear environment indicators found, defaulting to production for safety (set ENVIRONMENT variable for explicit control)'
-              console.log(`[Environment Detection] ⚠️  Environment defaulted to production for safety: ${environment.toUpperCase()}`)
-              console.log(`[Environment Detection] 💡 Recommendation: Set ENVIRONMENT=production|development|staging for explicit control`)
+              envLog(`[Environment Detection] ⚠️  Environment defaulted to production for safety: ${environment.toUpperCase()}`)
+              envLog(`[Environment Detection] 💡 Recommendation: Set ENVIRONMENT=production|development|staging for explicit control`)
             }
           }
         }
@@ -1066,10 +1077,10 @@ export function detectEnvironment(runtimeUrls?: {
   }
   
   // Log final result
-  console.log(`[Environment Detection] 🎯 FINAL RESULT: ${environment.toUpperCase()} environment detected`)
-  console.log(`[Environment Detection] Detection method: ${detectionMethod}`)
-  console.log(`[Environment Detection] Context: ${context}`)
-  console.log(`[Environment Detection] Detection completed at ${new Date().toISOString()}`)
+  envLog(`[Environment Detection] 🎯 FINAL RESULT: ${environment.toUpperCase()} environment detected`)
+  envLog(`[Environment Detection] Detection method: ${detectionMethod}`)
+  envLog(`[Environment Detection] Context: ${context}`)
+  envLog(`[Environment Detection] Detection completed at ${new Date().toISOString()}`)
   
   return {
     environment,
@@ -1284,375 +1295,21 @@ export function validateUrlsForEnvironment(
  * @param prefix - Optional prefix for log messages
  */
 export function logEnvironmentInfo(envInfo: EnvironmentInfo, prefix: string = 'Environment'): void {
-  // Note: Error handling guidance is available via analyzeEnvironmentForErrors function
-  console.log(`[${prefix}] 🌍 Environment detected: ${envInfo.environment.toUpperCase()}`)
-  console.log(`[${prefix}] Detection method: ${envInfo.detectionMethod}`)
-  console.log(`[${prefix}] Context: ${envInfo.context}`)
-  
-  // Enhanced logging for build-time vs runtime detection (Requirements 2.1, 2.2)
-  console.log(`[${prefix}] === ENVIRONMENT DETECTION DETAILS ===`)
-  console.log(`[${prefix}] Detection timestamp: ${envInfo.timestamp}`)
-  console.log(`[${prefix}] Detection phase: ${envInfo.detectionPhase.isBuildTime ? 'BUILD-TIME' : 'RUNTIME'}`)
-  
-  if (envInfo.detectionPhase.isBuildTime) {
-    console.log(`[${prefix}] 🏗️  BUILD-TIME DETECTION:`)
-    console.log(`[${prefix}]   Build context: ${envInfo.detectionPhase.buildContext}`)
-    if (envInfo.detectionPhase.containerContext) {
-      console.log(`[${prefix}]   Container context: ${envInfo.detectionPhase.containerContext}`)
-    }
-    if (envInfo.detectionPhase.dockerBuild) {
-      console.log(`[${prefix}]   Docker build: ✓ YES`)
-      console.log(`[${prefix}]   ⚠️  Note: Environment variables may be limited during Docker build`)
-    }
-  } else {
-    console.log(`[${prefix}] 🚀 RUNTIME DETECTION:`)
-    console.log(`[${prefix}]   Full environment variable access available`)
-    console.log(`[${prefix}]   Runtime configuration can be dynamically loaded`)
-  }
-  
-  console.log(`[${prefix}] Environment flags:`)
-  console.log(`[${prefix}]   isProduction: ${envInfo.isProduction}`)
-  console.log(`[${prefix}]   isDevelopment: ${envInfo.isDevelopment}`)
-  console.log(`[${prefix}]   isStaging: ${envInfo.isStaging}`)
-  
-  // Log all environment variables checked during detection (Requirements 1.5)
-  console.log(`[${prefix}] 📋 Environment Variables Analyzed (${envInfo.environmentVariables.length} total):`)
-  envInfo.environmentVariables.forEach(envVar => {
-    const status = envVar.available ? '✓' : '✗'
-    const value = envVar.available ? envVar.value : 'NOT SET'
-    console.log(`[${prefix}]   ${status} ${envVar.name}: ${value} (${envVar.source})`)
-  })
-  
-  // Log missing variables that could improve detection (Requirements 1.3)
-  if (envInfo.missingVariables.length > 0) {
-    console.log(`[${prefix}] ⚠️  Missing Variables (${envInfo.missingVariables.length}):`)
-    envInfo.missingVariables.forEach(varName => {
-      console.log(`[${prefix}]   • ${varName} - Could improve environment detection accuracy`)
-    })
-    console.log(`[${prefix}] 💡 Consider setting these variables for more explicit control`)
-  } else {
-    console.log(`[${prefix}] ✓ All recommended environment variables are available`)
-  }
-  
-  // Log priority chain showing which source was selected (Requirements 2.4)
-  console.log(`[${prefix}] 🔗 Priority Chain Analysis:`)
-  envInfo.priorityChain.forEach(item => {
-    const status = item.selected ? '🎯 SELECTED' : item.available ? '⏭️  AVAILABLE' : '❌ UNAVAILABLE'
-    console.log(`[${prefix}]   ${item.priority}. ${item.source}: ${status}`)
-    console.log(`[${prefix}]      Reason: ${item.reason}`)
-    if (item.value) {
-      console.log(`[${prefix}]      Value: ${item.value}`)
-    }
-  })
-  
-  // Log network environment information with enhanced details
-  if (envInfo.networkEnvironment) {
-    const netEnv = envInfo.networkEnvironment
-    console.log(`[${prefix}] 🔗 Network Environment Configuration:`)
-    console.log(`[${prefix}]   Container detected: ${netEnv.isContainer ? '✓ YES' : '✗ NO'}`)
-    console.log(`[${prefix}]   Server-side execution: ${netEnv.isServerSide ? '✓ YES' : '✗ NO'}`)
-    console.log(`[${prefix}]   Preferred protocol: ${netEnv.preferredProtocol}`)
-    console.log(`[${prefix}]   Internal domain: ${netEnv.internalDomain}`)
-    console.log(`[${prefix}]   External domain: ${netEnv.externalDomain}`)
-    console.log(`[${prefix}]   Network detection method: ${netEnv.networkDetectionMethod}`)
-    console.log(`[${prefix}]   Network detection context: ${netEnv.networkContext}`)
-    
-    // Enhanced container networking analysis
-    if (netEnv.isContainer) {
-      console.log(`[${prefix}] 🐳 Container Networking Analysis:`)
-      console.log(`[${prefix}]   Container type: Docker/Kubernetes detected`)
-      console.log(`[${prefix}]   Internal service communication: ENABLED`)
-      console.log(`[${prefix}]   Service discovery: Using container names (kong, gotrue, etc.)`)
-      console.log(`[${prefix}]   Port mapping: Internal ports accessible via service names`)
-      
-      if (netEnv.isServerSide) {
-        console.log(`[${prefix}]   → Server-side APIs should use: ${netEnv.internalDomain}`)
-        console.log(`[${prefix}]   → Example: http://kong:8000/auth/v1 for GoTrue`)
-      } else {
-        console.log(`[${prefix}]   → Client-side requests should use: ${netEnv.externalDomain}`)
-        console.log(`[${prefix}]   → Example: http://localhost:8000/auth/v1 for GoTrue`)
-      }
-    } else {
-      console.log(`[${prefix}] 💻 Non-Container Environment:`)
-      console.log(`[${prefix}]   Direct networking: Using localhost/IP addresses`)
-      console.log(`[${prefix}]   Service discovery: Manual configuration required`)
-      console.log(`[${prefix}]   Port access: Direct port binding`)
-    }
-    
-    // Log networking recommendations
-    console.log(`[${prefix}] 💡 Networking Recommendations:`)
-    if (netEnv.isContainer && netEnv.isServerSide) {
-      console.log(`[${prefix}]   ✓ Use internal service names for server-to-server communication`)
-      console.log(`[${prefix}]   ✓ Avoid localhost URLs in server-side container code`)
-      console.log(`[${prefix}]   ✓ Use HTTP for internal container communication (unless TLS required)`)
-    } else if (netEnv.isContainer && !netEnv.isServerSide) {
-      console.log(`[${prefix}]   ✓ Use external addresses for browser requests`)
-      console.log(`[${prefix}]   ✓ Ensure port mapping is configured for external access`)
-    } else {
-      console.log(`[${prefix}]   ✓ Use localhost or direct IP addresses`)
-      console.log(`[${prefix}]   ✓ Ensure services are running on expected ports`)
-    }
-  }
-  
-  // Environment-specific guidance with build-time considerations
-  if (envInfo.isProduction) {
-    console.log(`[${prefix}] ⚠️  PRODUCTION MODE DETECTED`)
-    console.log(`[${prefix}] 🔒 Production Requirements:`)
-    console.log(`[${prefix}]   • All URLs must point to production services`)
-    console.log(`[${prefix}]   • No localhost or development URLs allowed`)
-    console.log(`[${prefix}]   • HTTPS recommended for external communication`)
-    console.log(`[${prefix}]   • Proper SSL/TLS certificates required`)
-    console.log(`[${prefix}]   • Environment variables must be production-ready`)
-    
-    if (envInfo.detectionPhase.isBuildTime) {
-      console.log(`[${prefix}] 🏗️  Build-time Production Considerations:`)
-      console.log(`[${prefix}]   • Ensure ENVIRONMENT=production is set during Docker build`)
-      console.log(`[${prefix}]   • Use ARG declarations in Dockerfile for build-time variables`)
-      console.log(`[${prefix}]   • Verify production URLs are accessible during build`)
-    }
-  } else if (envInfo.isDevelopment) {
-    console.log(`[${prefix}] 🔧 DEVELOPMENT MODE DETECTED`)
-    console.log(`[${prefix}] 🛠️  Development Setup:`)
-    console.log(`[${prefix}]   • Using local development services`)
-    console.log(`[${prefix}]   • Localhost URLs are expected and normal`)
-    console.log(`[${prefix}]   • HTTP is acceptable for local development`)
-    console.log(`[${prefix}]   • Ensure docker-compose services are running`)
-    
-    if (envInfo.detectionPhase.isBuildTime) {
-      console.log(`[${prefix}] 🏗️  Build-time Development Considerations:`)
-      console.log(`[${prefix}]   • Development builds can use localhost URLs`)
-      console.log(`[${prefix}]   • Build-time environment detection is working correctly`)
-    }
-  } else if (envInfo.isStaging) {
-    console.log(`[${prefix}] 🧪 STAGING MODE DETECTED`)
-    console.log(`[${prefix}] 🎯 Staging Configuration:`)
-    console.log(`[${prefix}]   • Using staging environment services`)
-    console.log(`[${prefix}]   • Should mirror production setup`)
-    console.log(`[${prefix}]   • Staging-specific URLs and credentials`)
-    
-    if (envInfo.detectionPhase.isBuildTime) {
-      console.log(`[${prefix}] 🏗️  Build-time Staging Considerations:`)
-      console.log(`[${prefix}]   • Ensure ENVIRONMENT=staging is set during build`)
-      console.log(`[${prefix}]   • Staging URLs should be accessible during build`)
-    }
-  }
-  
-  console.log(`[${prefix}] =======================================`)
-  
-  // Analyze environment for potential errors and provide guidance
-  try {
-    const errors = analyzeEnvironmentForErrors(envInfo, {
-      supabaseUrl: process.env.SUPABASE_PUBLIC_URL || process.env.SUPABASE_URL,
-      gotrueUrl: process.env.NEXT_PUBLIC_GOTRUE_URL,
-      apiUrl: process.env.API_EXTERNAL_URL,
-    })
-    
-    if (errors.length > 0) {
-      console.log(`[${prefix}] 🔍 Configuration Analysis: ${errors.length} issues detected`)
-      errors.forEach((error, index) => {
-        console.log(`[${prefix}] Issue ${index + 1}/${errors.length}:`)
-        logConfigurationError(error, {
-          environment: envInfo.environment,
-          isDocker: envInfo.detectionPhase.dockerBuild || false,
-          isBuildTime: envInfo.detectionPhase.isBuildTime,
-          availableVariables: envInfo.environmentVariables.filter(v => v.available).map(v => v.name),
-          missingVariables: envInfo.missingVariables,
-          currentUrls: {
-            supabaseUrl: process.env.SUPABASE_PUBLIC_URL || process.env.SUPABASE_URL,
-            gotrueUrl: process.env.NEXT_PUBLIC_GOTRUE_URL,
-            apiUrl: process.env.API_EXTERNAL_URL,
-          },
-        }, prefix)
-      })
-    } else {
-      console.log(`[${prefix}] ✅ Configuration analysis: No critical issues detected`)
-    }
-  } catch (analysisError) {
-    console.warn(`[${prefix}] ⚠️ Could not perform configuration analysis:`, analysisError)
-  }
+  // Environment detection logging disabled - function is now a no-op
 }
 
-/**
- * Logs URL validation results for the environment
- * 
- * @param validation - Validation result
- * @param prefix - Optional prefix for log messages
- */
 export function logUrlValidation(
   validation: ReturnType<typeof validateUrlsForEnvironment>,
   prefix: string = 'Environment'
 ): void {
-  if (validation.errors.length > 0) {
-    console.error(`[${prefix}] ❌ URL validation errors:`)
-    validation.errors.forEach((error, index) => {
-      console.error(`  ${index + 1}. ${error}`)
-    })
-  }
-
-  if (validation.warnings.length > 0) {
-    console.warn(`[${prefix}] ⚠️  URL validation warnings:`)
-    validation.warnings.forEach((warning, index) => {
-      console.warn(`  ${index + 1}. ${warning}`)
-    })
-  }
-
-  if (validation.isValid && validation.warnings.length === 0) {
-    console.log(`[${prefix}] ✓ All URLs are valid for the current environment`)
-  }
+  // Environment detection logging disabled - function is now a no-op
 }
 
-/**
- * Logs network address validation results
- * 
- * @param validation - Network validation result
- * @param url - The URL that was validated
- * @param prefix - Optional prefix for log messages
- */
 export function logNetworkValidation(
   validation: ReturnType<typeof validateInternalNetworkAddress>,
   url: string,
   prefix: string = 'Network'
 ): void {
-  console.log(`[${prefix}] 🔍 Validating network address: ${url}`)
-  console.log(`[${prefix}]   Internal address: ${validation.isInternalAddress ? '✓' : '✗'}`)
-  console.log(`[${prefix}]   Valid: ${validation.isValid ? '✓' : '✗'}`)
-  
-  if (validation.errors.length > 0) {
-    console.error(`[${prefix}] ❌ Network validation errors:`)
-    validation.errors.forEach((error, index) => {
-      console.error(`  ${index + 1}. ${error}`)
-    })
-  }
-
-  if (validation.warnings.length > 0) {
-    console.warn(`[${prefix}] ⚠️  Network validation warnings:`)
-    validation.warnings.forEach((warning, index) => {
-      console.warn(`  ${index + 1}. ${warning}`)
-    })
-  }
-
-  if (validation.recommendations.length > 0) {
-    console.log(`[${prefix}] 💡 Network recommendations:`)
-    validation.recommendations.forEach((rec, index) => {
-      console.log(`  ${index + 1}. ${rec}`)
-    })
-  }
+  // Environment detection logging disabled - function is now a no-op
 }
 
-/**
- * Gets environment-specific configuration recommendations
- * 
- * @param environment - The current environment
- * @returns Array of recommendation strings
- */
-export function getEnvironmentRecommendations(environment: Environment): string[] {
-  const recommendations: string[] = []
-
-  if (environment === 'production') {
-    recommendations.push(
-      '🔧 Production Environment Setup:',
-      '  • Set SUPABASE_PUBLIC_URL to your production Supabase URL (e.g., https://your-project.supabase.co)',
-      '  • Set API_EXTERNAL_URL to your production API gateway URL (e.g., https://api.yourcompany.com)',
-      '  • Set NEXT_PUBLIC_SUPABASE_ANON_KEY to your production anonymous key',
-      '  • Use HTTPS URLs for all services for security',
-      '  • Never use localhost, 127.0.0.1, or 0.0.0.0 URLs in production',
-      '  • Consider using domain names instead of IP addresses for reliability',
-      '  • Verify all URLs are accessible from your production network',
-      '🔍 Validation Commands:',
-      '  • curl -f "$SUPABASE_PUBLIC_URL/rest/v1/" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY"',
-      '  • curl -f "$API_EXTERNAL_URL/health" (if health endpoint exists)',
-      '📋 Environment Variables Checklist:',
-      '  • SUPABASE_PUBLIC_URL ✓',
-      '  • API_EXTERNAL_URL ✓', 
-      '  • NEXT_PUBLIC_SUPABASE_ANON_KEY ✓',
-      '  • NODE_ENV=production (recommended)',
-      '  • ENVIRONMENT=production (optional, explicit)'
-    )
-  } else if (environment === 'development') {
-    recommendations.push(
-      '🔧 Development Environment Setup:',
-      '  • Use localhost URLs for local development',
-      '  • Ensure local Supabase services are running (docker-compose up)',
-      '  • Default ports: Kong (8000), GoTrue (54321), PostgREST (3000)',
-      '  • Use HTTP (not HTTPS) for localhost to avoid certificate issues',
-      '🚀 Quick Start Commands:',
-      '  • docker-compose up -d (start local services)',
-      '  • curl http://localhost:8000/health (verify Kong is running)',
-      '  • curl http://localhost:54321/health (verify GoTrue is running)',
-      '📋 Development URLs:',
-      '  • GoTrue: http://localhost:54321/auth/v1',
-      '  • Kong Gateway: http://localhost:8000',
-      '  • PostgREST: http://localhost:3000',
-      '🔧 Override Options:',
-      '  • Set NEXT_PUBLIC_GOTRUE_URL if using custom ports',
-      '  • Set NODE_ENV=development for explicit development mode',
-      '  • Set SUPABASE_PUBLIC_URL if connecting to remote development instance'
-    )
-  } else if (environment === 'staging') {
-    recommendations.push(
-      '🔧 Staging Environment Setup:',
-      '  • Use staging-specific URLs with staging indicators (staging., stg., test.)',
-      '  • Set SUPABASE_PUBLIC_URL to your staging Supabase URL',
-      '  • Set API_EXTERNAL_URL to your staging API gateway URL',
-      '  • Use staging-specific API keys and credentials',
-      '  • Consider using HTTPS even in staging for production-like testing',
-      '📋 Staging Environment Variables:',
-      '  • SUPABASE_PUBLIC_URL (staging URL)',
-      '  • API_EXTERNAL_URL (staging API gateway)',
-      '  • NEXT_PUBLIC_SUPABASE_ANON_KEY (staging anon key)',
-      '  • ENVIRONMENT=staging (recommended for clarity)',
-      '🔍 Staging Validation:',
-      '  • Verify staging URLs are accessible',
-      '  • Test with staging data and credentials',
-      '  • Ensure staging environment is isolated from production',
-      '💡 Best Practices:',
-      '  • Use staging for integration testing before production',
-      '  • Keep staging configuration similar to production',
-      '  • Use staging-specific database and storage'
-    )
-  }
-
-  return recommendations
-}
-
-/**
- * Performs comprehensive environment check and logs results
- * 
- * This is a convenience function that:
- * 1. Detects the environment using runtime URLs if available
- * 2. Validates URLs for the environment
- * 3. Logs all information and recommendations
- * 
- * @param urls - URLs to validate
- * @param useRuntimeUrls - Whether to use these URLs for environment detection
- * @returns Environment information
- */
-export function performEnvironmentCheck(
-  urls: {
-    gotrueUrl?: string
-    supabaseUrl?: string
-    apiUrl?: string
-  },
-  useRuntimeUrls: boolean = true
-): EnvironmentInfo {
-  // Detect environment, optionally using runtime URLs
-  const envInfo = detectEnvironment(useRuntimeUrls ? urls : undefined)
-  
-  // Log environment info
-  logEnvironmentInfo(envInfo, 'Environment Check')
-  
-  // Validate URLs
-  const validation = validateUrlsForEnvironment(urls, envInfo.environment)
-  logUrlValidation(validation, 'Environment Check')
-  
-  // Log recommendations if there are issues
-  if (!validation.isValid || validation.warnings.length > 0) {
-    const recommendations = getEnvironmentRecommendations(envInfo.environment)
-    console.log('[Environment Check] 💡 Recommendations:')
-    recommendations.forEach((rec, index) => {
-      console.log(`  ${index + 1}. ${rec}`)
-    })
-  }
-  
-  return envInfo
-}

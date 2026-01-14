@@ -11,7 +11,14 @@ const SecretsPage: NextPageWithLayout = () => {
   return (
     <ScaffoldContainer size="large">
       <ScaffoldSection isFullWidth>
-        {IS_PLATFORM ? <EdgeFunctionSecrets /> : <FunctionsSecretsEmptyStateLocal />}
+        {/* Enable EdgeFunctionSecrets for both platform and self-hosted environments */}
+        <EdgeFunctionSecrets />
+        {/* Show additional local development guidance for self-hosted environments */}
+        {!IS_PLATFORM && (
+          <div className="mt-8">
+            <FunctionsSecretsEmptyStateLocal />
+          </div>
+        )}
       </ScaffoldSection>
     </ScaffoldContainer>
   )

@@ -19,6 +19,13 @@ services:
         - NEXT_PUBLIC_REQUIRE_LOGIN=true
         - NEXT_PUBLIC_IS_PLATFORM=false
     
+    # Production volume mounts for persistence
+    volumes:
+      # Mount Edge Functions directory for local storage backend
+      - ./volumes/functions:/home/deno/functions:rw
+      # Mount secrets storage directory for persistence
+      - ./volumes/studio/.supabase:/app/.supabase:rw
+    
     # Production-specific environment variables
     environment:
       # Production environment identifier (runtime)
@@ -85,6 +92,35 @@ services:
         limits:
           memory: 512M
           cpus: '0.5'
+
+  # Production-specific enhanced REST API configuration
+  rest:
+    restart: always
+    environment:
+      # Production performance settings
+      PGRST_DB_POOL: 20
+      PGRST_DB_MAX_ROWS: 2000
+      ENHANCED_RESPONSE_CACHE_ENABLED: true
+      ENHANCED_RESPONSE_CACHE_TTL: 600
+      ENHANCED_METRICS_ENABLED: true
+      ENHANCED_METRICS_INTERVAL: 60
+      ENHANCED_MAX_QUERY_COMPLEXITY: 2000
+      ENHANCED_MEMORY_LIMIT_MB: 1024
+      PGRST_LOG_LEVEL: warn
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check.sh", "--simple"]
+      timeout: 15s
+      interval: 60s
+      start_period: 180s
+      retries: 5
 
   # Production-specific database configuration
   db:

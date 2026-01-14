@@ -1516,12 +1516,6 @@ type ApiRouteConfig = {
   handler satisfies ApiRouteConfig
 }
 
-// Validate ../../pages/api/platform/projects/[ref]/api/rest.ts
-{
-  const handler = {} as typeof import("../../pages/api/platform/projects/[ref]/api/rest.js")
-  handler satisfies ApiRouteConfig
-}
-
 // Validate ../../pages/api/platform/projects/[ref]/billing/addons.ts
 {
   const handler = {} as typeof import("../../pages/api/platform/projects/[ref]/billing/addons.js")

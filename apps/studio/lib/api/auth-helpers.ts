@@ -48,6 +48,12 @@ export async function getCurrentUserId(
       logAuthenticationFailure(context, 'Authentication token missing from request')
       return null
     }
+
+    // Check if this is a SERVICE_ROLE_KEY (role: service_role)
+    if (isServiceRoleKey(token)) {
+      console.log('SERVICE_ROLE_KEY detected, returning service_role identifier')
+      return 'service_role'
+    }
     
     // If no projectRef provided, try to extract it from the request
     const resolvedProjectRef = projectRef || extractProjectRefFromRequest(req)
@@ -105,7 +111,7 @@ function extractProjectRefFromRequest(req: NextApiRequest): string | null {
 }
 
 /**
- * Extract JWT token from request (Authorization header or cookies)
+ * Extract JWT token from request (Authorization header, apikey header, or cookies)
  * 
  * @param req - Next.js API request object
  * @returns JWT token string or null if not found
@@ -116,23 +122,59 @@ function extractTokenFromRequest(req: NextApiRequest): string | null {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7).trim()
     if (token.length > 0) {
+      console.log('[Auth] Token found in Authorization header')
       return token
     }
+  }
+  
+  // Check for apikey header (Supabase SERVICE_ROLE_KEY)
+  const apikey = req.headers.apikey as string
+  if (apikey && apikey.trim().length > 0) {
+    console.log('[Auth] Token found in apikey header')
+    return apikey.trim()
   }
   
   // Check for session cookie (alternative auth method)
   const sessionCookie = req.cookies['supabase-auth-token'] || req.cookies['sb-access-token']
   if (sessionCookie) {
+    console.log('[Auth] Token found in session cookie')
     return sessionCookie
   }
   
   // Check for access token in cookies (Supabase auth)
   const accessToken = req.cookies['sb-access-token']
   if (accessToken) {
+    console.log('[Auth] Token found in access token cookie')
     return accessToken
   }
   
+  // Log all available headers for debugging (without sensitive data)
+  console.log('[Auth] No token found. Available headers:', {
+    hasAuthorization: !!req.headers.authorization,
+    hasApikey: !!req.headers.apikey,
+    hasCookies: !!req.cookies && Object.keys(req.cookies).length > 0,
+    cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+    userAgent: req.headers['user-agent'],
+    endpoint: req.url
+  })
+  
   return null
+}
+
+/**
+ * Check if a token is a SERVICE_ROLE_KEY by decoding and checking the role claim
+ * 
+ * @param token - JWT token string
+ * @returns true if token has role: service_role
+ */
+function isServiceRoleKey(token: string): boolean {
+  try {
+    // Decode without verification to check the role claim
+    const decoded = jwt.decode(token) as any
+    return decoded && decoded.role === 'service_role'
+  } catch (error) {
+    return false
+  }
 }
 
 /**
@@ -159,6 +201,14 @@ async function verifyJwtToken(
     }
     if (process.env.SUPABASE_API_URL) {
       validIssuers.push(process.env.SUPABASE_API_URL)
+    }
+    // Also accept the external URL as a valid issuer (for tokens issued by GoTrue)
+    if (process.env.GOTRUE_JWT_ISSUER) {
+      validIssuers.push(process.env.GOTRUE_JWT_ISSUER)
+    }
+    // Accept localhost:8000 as fallback for development
+    if (process.env.NODE_ENV === 'development') {
+      validIssuers.push('http://localhost:8000')
     }
     
     // First, try with global JWT secret
@@ -448,6 +498,14 @@ export async function validateJwtTokenWithMultipleSources(
     }
     if (process.env.SUPABASE_API_URL) {
       validIssuers.push(process.env.SUPABASE_API_URL)
+    }
+    // Also accept the external URL as a valid issuer (for tokens issued by GoTrue)
+    if (process.env.GOTRUE_JWT_ISSUER) {
+      validIssuers.push(process.env.GOTRUE_JWT_ISSUER)
+    }
+    // Accept localhost:8000 as fallback for development
+    if (process.env.NODE_ENV === 'development') {
+      validIssuers.push('http://localhost:8000')
     }
     
     // 1. Try global JWT secret first

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { PermissionAction } from '@supabase/shared-types/out/constants'
 import dayjs from 'dayjs'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useMemo, useState } from 'react'
@@ -104,6 +104,53 @@ export const EdgeFunctionDetails = () => {
     slug: functionSlug,
   })
 
+  // Enhanced function name display with fallback
+  const displayName = useMemo(() => {
+    if (selectedFunction?.name) {
+      return selectedFunction.name
+    }
+    if (functionSlug) {
+      return functionSlug
+    }
+    return 'Unknown Function'
+  }, [selectedFunction?.name, functionSlug])
+
+  // Enhanced error handling for function retrieval
+  const functionError = useMemo(() => {
+    if (!isError || !error) return null
+    
+    // Check for specific error types
+    if (error.message?.includes('not found') || error.message?.includes('404')) {
+      return {
+        title: 'Function not found',
+        message: `The function "${functionSlug}" could not be found. It may have been deleted or the slug may be incorrect.`,
+        suggestion: 'Check the function name and try again, or return to the functions list.'
+      }
+    }
+    
+    if (error.message?.includes('permission') || error.message?.includes('403')) {
+      return {
+        title: 'Access denied',
+        message: 'You do not have permission to view this function.',
+        suggestion: 'Contact your project administrator for access.'
+      }
+    }
+    
+    if (error.message?.includes('timeout') || error.message?.includes('network')) {
+      return {
+        title: 'Connection error',
+        message: 'Unable to connect to the Edge Functions service.',
+        suggestion: 'Check your network connection and try again.'
+      }
+    }
+    
+    return {
+      title: 'Failed to load function',
+      message: error.message || 'An unexpected error occurred while loading the function details.',
+      suggestion: 'Please try refreshing the page or contact support if the problem persists.'
+    }
+  }, [isError, error, functionSlug])
+
   const { mutate: updateEdgeFunction, isPending: isUpdating } = useEdgeFunctionUpdateMutation()
   const { mutate: deleteEdgeFunction, isPending: isDeleting } = useEdgeFunctionDeleteMutation({
     onSuccess: () => {
@@ -163,11 +210,11 @@ export const EdgeFunctionDetails = () => {
   useEffect(() => {
     if (selectedFunction) {
       form.reset({
-        name: selectedFunction.name,
+        name: selectedFunction.name || functionSlug || '',
         verify_jwt: selectedFunction.verify_jwt,
       })
     }
-  }, [selectedFunction])
+  }, [selectedFunction, functionSlug])
 
   return (
     <PageContainer size="full">
@@ -175,13 +222,27 @@ export const EdgeFunctionDetails = () => {
         <PageSectionSummary className="gap-6">
           <PageSectionTitle>Details</PageSectionTitle>
           {isLoading && <GenericSkeletonLoader />}
-          {isError && (
-            <AlertError error={error} subject="Failed to retrieve edge function details" />
+          {isError && functionError && (
+            <div className="space-y-4">
+              <AlertError error={error} subject={functionError.title} />
+              <div className="bg-surface-100 border border-border rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2">
+                    <p className="text-sm text-foreground">{functionError.message}</p>
+                    <p className="text-sm text-foreground-light">{functionError.suggestion}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
           {isSuccess && (
             <dl className="grid grid-cols-1 @xl:grid-cols-[auto_1fr] gap-y-2 [&>dd]:mb-3 @xl:[&>dd]:mb-0 @xl:gap-y-4 gap-x-10">
+              <dt className="text-sm text-foreground-light">Name</dt>
+              <dd className="text-sm @lg:text-left font-medium">{displayName}</dd>
+
               <dt className="text-sm text-foreground-light">Slug</dt>
-              <dd className="text-sm @lg:text-left">{selectedFunction?.slug}</dd>
+              <dd className="text-sm @lg:text-left">{selectedFunction?.slug || functionSlug}</dd>
 
               <dt className="text-sm text-foreground-light">Endpoint URL</dt>
               <dd className="text-sm @lg:text-left">
@@ -267,6 +328,7 @@ export const EdgeFunctionDetails = () => {
                                 {...field}
                                 className="w-64"
                                 disabled={!canUpdateEdgeFunction}
+                                placeholder={functionSlug || 'Function name'}
                               />
                             </FormControl_Shadcn_>
                           </FormItemLayout>
@@ -311,14 +373,14 @@ export const EdgeFunctionDetails = () => {
                           Cancel
                         </Button>
                       )}
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={isUpdating}
-                        disabled={!canUpdateEdgeFunction || !form.formState.isDirty}
-                      >
-                        Save changes
-                      </Button>
+                        <Button
+                          type="primary"
+                          htmlType="submit"
+                          loading={isUpdating}
+                          disabled={!canUpdateEdgeFunction || !form.formState.isDirty}
+                        >
+                          Save changes
+                        </Button>
                     </CardFooter>
                   </Card>
                 </form>
@@ -359,7 +421,7 @@ export const EdgeFunctionDetails = () => {
                       const code = tab.code({
                         showKey,
                         functionUrl,
-                        functionName: selectedFunction?.name ?? '',
+                        functionName: displayName,
                         apiKey,
                       })
 
@@ -379,7 +441,7 @@ export const EdgeFunctionDetails = () => {
                                 tab.code({
                                   showKey: true,
                                   functionUrl,
-                                  functionName: selectedFunction?.name ?? '',
+                                  functionName: displayName,
                                   apiKey,
                                 })
                               )
@@ -455,7 +517,7 @@ export const EdgeFunctionDetails = () => {
             variant="destructive"
             confirmLabel="Delete"
             confirmLabelLoading="Deleting"
-            title={`Confirm to delete ${selectedFunction?.name}`}
+            title={`Confirm to delete ${displayName}`}
             onCancel={() => setShowDeleteModal(false)}
             onConfirm={onConfirmDelete}
             alert={{

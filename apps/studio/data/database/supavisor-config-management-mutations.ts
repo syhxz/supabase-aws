@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { handleError } from 'data/fetchers'
+import { handleError, fetchPost, fetchGet } from 'data/fetchers'
 import type { ResponseError } from 'types'
 import { databaseKeys } from './keys'
 import { PoolingCacheInvalidation } from './pooling-cache-invalidation'
@@ -31,23 +31,16 @@ export async function rollbackSupavisorConfig({
   ref,
   timestamp
 }: RollbackVariables) {
-  const response = await fetch(`/api/platform/projects/${ref}/supavisor-config-management`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      action: 'rollback',
-      timestamp
-    }),
+  const response = await fetchPost(`/api/platform/projects/${ref}/supavisor-config-management`, {
+    action: 'rollback',
+    timestamp
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    handleError(error)
+  if (response instanceof Error) {
+    handleError(response)
   }
 
-  const result = await response.json()
+  return response
   return result.data
 }
 
@@ -55,38 +48,26 @@ export async function cleanupSupavisorBackups({
   ref,
   keepCount = 10
 }: CleanupVariables) {
-  const response = await fetch(`/api/platform/projects/${ref}/supavisor-config-management`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      action: 'cleanup',
-      keepCount
-    }),
+  const response = await fetchPost(`/api/platform/projects/${ref}/supavisor-config-management`, {
+    action: 'cleanup',
+    keepCount
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    handleError(error)
+  if (response instanceof Error) {
+    handleError(response)
   }
 
-  const result = await response.json()
-  return result.data
+  return response.data
 }
 
 export async function getSupavisorBackups(ref: string): Promise<ConfigurationBackupInfo[]> {
-  const response = await fetch(`/api/platform/projects/${ref}/supavisor-config-management?action=backups`, {
-    method: 'GET',
-  })
+  const response = await fetchGet(`/api/platform/projects/${ref}/supavisor-config-management?action=backups`)
 
-  if (!response.ok) {
-    const error = await response.json()
-    handleError(error)
+  if (response instanceof Error) {
+    handleError(response)
   }
 
-  const result = await response.json()
-  return result.data
+  return response.data
 }
 
 export type RollbackData = Awaited<ReturnType<typeof rollbackSupavisorConfig>>

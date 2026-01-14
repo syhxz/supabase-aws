@@ -1,0 +1,12 @@
+{
+  "slug": "smooth-handler",
+  "name": "smooth-handler",
+  "description": "",
+  "version": "1.0.0",
+  "runtime": "deno",
+  "entrypoint": "index.ts",
+  "projectRef": "0irikjmk5ijanl",
+  "userId": "4a985199-42a4-4384-a1e9-3087749217a1",
+  "createdAt": "2026-01-09T11:41:16.179Z",
+  "updatedAt": "2026-01-09T11:41:16.179Z"
+}

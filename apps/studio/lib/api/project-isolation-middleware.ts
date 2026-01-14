@@ -99,44 +99,130 @@ export class ProjectIsolationMiddleware {
 
     return withErrorHandling(
       async () => {
+        console.log('[ProjectIsolation] Starting context extraction', {
+          endpoint: req.url,
+          method: req.method,
+          hasAuthHeader: !!req.headers.authorization,
+          hasApikey: !!req.headers.apikey,
+          hasCookies: !!req.cookies && Object.keys(req.cookies).length > 0
+        })
+
         // Extract project ref from URL path or query parameters
         const projectRef = this.extractProjectRef(req)
         if (!projectRef) {
+          console.error('[ProjectIsolation] Failed to extract project ref from request', {
+            url: req.url,
+            query: req.query
+          })
           throw ErrorFactory.routing.invalidProjectRef('', errorContext)
         }
+
+        console.log('[ProjectIsolation] Extracted project ref:', projectRef)
 
         // Get authenticated user ID
         // Note: We no longer require project_ref claim in JWT (GoTrue doesn't include it)
         // Project access is verified via database queries below
         const userId = await getCurrentUserId(req, projectRef)
+        
+        console.log('[ProjectIsolation] Authentication result:', {
+          userId: userId ? (userId === 'service_role' ? 'service_role' : 'authenticated_user') : 'null',
+          projectRef
+        })
+        
+        // Check if this is a SERVICE_ROLE_KEY request
+        if (userId === 'service_role') {
+          console.log('[ProjectIsolation] SERVICE_ROLE_KEY detected, bypassing project isolation checks')
+          
+          // For SERVICE_ROLE_KEY, we still need to get the project ID but skip user validation
+          const projectId = await this.getProjectIdFromRef(projectRef)
+          if (!projectId) {
+            console.error('[ProjectIsolation] Project not found for SERVICE_ROLE_KEY request:', projectRef)
+            throw ErrorFactory.projectDeletion.projectNotFound(projectRef, errorContext)
+          }
+
+          console.log('[ProjectIsolation] SERVICE_ROLE_KEY context created successfully')
+          
+          // Return context with service role permissions (full access)
+          return {
+            projectRef,
+            projectId,
+            userId: 'service_role',
+            accessResult: {
+              hasAccess: true,
+              accessType: 'owner' as const,
+              reason: 'SERVICE_ROLE_KEY access'
+            },
+            permissions: {
+              canRead: true,
+              canWrite: true,
+              canAdmin: true,
+              canDelete: true,
+              canManageApiKeys: true,
+              canManageJwtKeys: true
+            }
+          }
+        }
+        
         if (!userId) {
+          console.error('[ProjectIsolation] Authentication failed - no valid user ID', {
+            projectRef,
+            endpoint: req.url,
+            hasAuthHeader: !!req.headers.authorization,
+            hasApikey: !!req.headers.apikey
+          })
           throw ErrorFactory.auth.notAuthenticated(errorContext)
         }
+
+        console.log('[ProjectIsolation] Validating user project access')
 
         // Validate user access to the project using database-based verification
         // This queries the studio_projects table to check user-project relationships
         // Requirements: 11.7, 11.8
         const accessResult = await validateUserProjectAccessByRef(userId, projectRef)
         if (!accessResult.hasAccess) {
+          console.error('[ProjectIsolation] User access validation failed', {
+            userId,
+            projectRef,
+            accessType: accessResult.accessType,
+            reason: accessResult.reason
+          })
           throw ErrorFactory.auth.insufficientPermissions(
             `project ${projectRef}`,
             errorContext
           )
         }
 
+        console.log('[ProjectIsolation] User access validated:', {
+          userId,
+          projectRef,
+          accessType: accessResult.accessType
+        })
+
         // Get project ID from project ref (needed for permissions and data access)
         const projectId = await this.getProjectIdFromRef(projectRef)
         if (!projectId) {
+          console.error('[ProjectIsolation] Failed to get project ID from ref:', projectRef)
           throw ErrorFactory.projectDeletion.projectNotFound(projectRef, errorContext)
         }
+
+        console.log('[ProjectIsolation] Project ID resolved:', projectId)
 
         // Get user permissions for the project
         const permissions = await getUserProjectPermissions(userId, projectId)
 
+        console.log('[ProjectIsolation] User permissions retrieved:', {
+          userId,
+          projectId,
+          permissions
+        })
+
         // Validate permission requirements if specified
         if (permissionRequirements) {
+          console.log('[ProjectIsolation] Validating permission requirements:', permissionRequirements)
           this.validatePermissionRequirements(permissions, permissionRequirements, errorContext)
         }
+
+        console.log('[ProjectIsolation] Context extraction completed successfully')
 
         return {
           projectRef,
@@ -147,7 +233,15 @@ export class ProjectIsolationMiddleware {
         }
       },
       errorContext,
-      (cause) => ErrorFactory.dataIsolation.isolationFailed('extractProjectContext', cause, errorContext)
+      (cause) => {
+        console.error('[ProjectIsolation] Context extraction failed with error:', {
+          cause: cause instanceof Error ? cause.message : cause,
+          stack: cause instanceof Error ? cause.stack : undefined,
+          endpoint: req.url,
+          projectRef: this.extractProjectRef(req)
+        })
+        return ErrorFactory.dataIsolation.isolationFailed('extractProjectContext', cause, errorContext)
+      }
     )
   }
 
@@ -573,10 +667,25 @@ export class ProjectIsolationMiddleware {
   private extractProjectRef(req: NextApiRequest): string | null {
     // Try to extract from URL path (e.g., /api/projects/[ref]/monitoring)
     const urlParts = req.url?.split('/') || []
-    const projectIndex = urlParts.findIndex(part => part === 'projects')
     
+    // Handle REST API path: /api/v1/projects/rest/[ref]/...
+    const restIndex = urlParts.findIndex(part => part === 'rest')
+    if (restIndex !== -1 && restIndex + 1 < urlParts.length) {
+      const ref = urlParts[restIndex + 1]
+      // Remove query parameters if present
+      return ref.split('?')[0]
+    }
+    
+    // Handle regular project paths: /api/projects/[ref]/...
+    const projectIndex = urlParts.findIndex(part => part === 'projects')
     if (projectIndex !== -1 && projectIndex + 1 < urlParts.length) {
       const ref = urlParts[projectIndex + 1]
+      // Skip if the next part is 'rest' (REST API path)
+      if (ref === 'rest' && projectIndex + 2 < urlParts.length) {
+        // For REST API paths, take the part after 'rest'
+        const actualRef = urlParts[projectIndex + 2]
+        return actualRef.split('?')[0]
+      }
       // Remove query parameters if present
       return ref.split('?')[0]
     }

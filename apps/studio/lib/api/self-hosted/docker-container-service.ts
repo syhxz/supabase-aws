@@ -210,6 +210,10 @@ export class DockerContainerService {
     
     try {
       switch (containerName) {
+        case 'supabase-edge-functions':
+        case 'functions':
+        case 'edge-functions':
+          return await this.checkEdgeFunctionsHealth()
         case 'supavisor':
           return await this.checkSupavisorHealth()
         case 'postgres':
@@ -500,6 +504,72 @@ export class DockerContainerService {
   }
 
   /**
+   * Check Edge Functions health
+   */
+  private async checkEdgeFunctionsHealth(): Promise<HealthCheckResult> {
+    const startTime = Date.now()
+    
+    // Try multiple possible ports for Edge Functions
+    const possiblePorts = [
+      parseInt(process.env.EDGE_FUNCTIONS_PORT || '9000', 10),
+      9000, // Default Edge Functions port
+      54321, // Supabase CLI default
+    ]
+    
+    for (const port of possiblePorts) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000)
+        
+        try {
+          // Try health endpoint first
+          const response = await fetch(`http://localhost:${port}/health`, {
+            method: 'GET',
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'Supabase-Studio-Docker-Health-Check',
+            },
+          })
+          clearTimeout(timeoutId)
+          
+          if (response.ok) {
+            const healthData = await response.json().catch(() => ({}))
+            return {
+              healthy: true,
+              message: healthData.status || 'Edge Functions service is healthy',
+              responseTime: Date.now() - startTime,
+              lastChecked: new Date().toISOString()
+            }
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId)
+          
+          // If health endpoint fails, try a simple connection test
+          const isListening = await this.checkPortListening('localhost', port)
+          if (isListening) {
+            return {
+              healthy: true,
+              message: `Edge Functions port ${port} is accessible (health endpoint unavailable)`,
+              responseTime: Date.now() - startTime,
+              lastChecked: new Date().toISOString()
+            }
+          }
+        }
+      } catch (error) {
+        console.debug(`Edge Functions health check failed on port ${port}:`, error)
+      }
+    }
+    
+    return {
+      healthy: false,
+      message: 'Edge Functions service not accessible on any known port',
+      responseTime: Date.now() - startTime,
+      lastChecked: new Date().toISOString()
+    }
+  }
+
+  /**
    * Check Storage health
    */
   private async checkStorageHealth(): Promise<HealthCheckResult> {
@@ -568,6 +638,15 @@ export class DockerContainerService {
    */
   private getDefaultPorts(containerName: string): Array<{ host: number; container: number }> {
     switch (containerName) {
+      case 'supabase-edge-functions':
+      case 'functions':
+      case 'edge-functions':
+        return [
+          { 
+            host: parseInt(process.env.EDGE_FUNCTIONS_PORT || '9000', 10), 
+            container: 9000 
+          }
+        ]
       case 'supavisor':
         return [
           { 
@@ -835,7 +914,8 @@ export class DockerContainerService {
     const supabaseContainers = [
       'supavisor', 'postgres', 'db', 'kong', 'gotrue', 
       'postgrest', 'realtime', 'storage', 'imgproxy', 
-      'meta', 'studio', 'edge-runtime'
+      'meta', 'studio', 'edge-runtime', 'functions', 
+      'supabase-edge-functions', 'edge-functions'
     ]
     
     const allContainers = await this.getAllContainersStatus()

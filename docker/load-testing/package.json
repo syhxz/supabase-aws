@@ -1,0 +1,25 @@
+{
+  "name": "enhanced-rest-api-load-tests",
+  "version": "1.0.0",
+  "description": "Load testing suite for Enhanced REST API",
+  "main": "load-test-suite.js",
+  "scripts": {
+    "test:light": "node load-test-suite.js light",
+    "test:moderate": "node load-test-suite.js moderate",
+    "test:heavy": "node load-test-suite.js heavy",
+    "test:stress": "node load-test-suite.js stress"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "supabase",
+    "postgrest",
+    "rest-api",
+    "load-testing",
+    "performance"
+  ],
+  "author": "Supabase Enhanced REST API Team",
+  "license": "MIT"
+}

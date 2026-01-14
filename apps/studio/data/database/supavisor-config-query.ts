@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { handleError } from 'data/fetchers'
+import { handleError, fetchGet } from 'data/fetchers'
 import { IS_PLATFORM } from 'lib/constants'
 import type { ResponseError, UseCustomQueryOptions } from 'types'
 import { databaseKeys } from './keys'
@@ -15,18 +15,15 @@ export async function getSupavisorConfig(
 ) {
   if (!projectRef) throw new Error('projectRef is required')
 
-  const response = await fetch(`/api/platform/projects/${projectRef}/supavisor-config`, {
-    method: 'GET',
-    signal,
+  const response = await fetchGet(`/api/platform/projects/${projectRef}/supavisor-config`, {
+    abortSignal: signal,
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    handleError(error)
+  if (response instanceof Error) {
+    handleError(response)
   }
 
-  const result = await response.json()
-  return result.data
+  return response.data
 }
 
 export type SupavisorConfigData = Awaited<ReturnType<typeof getSupavisorConfig>>

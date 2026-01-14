@@ -68,6 +68,7 @@ interface CreateProjectRequest {
   database_password?: string
   db_pass?: string // Support both formats for compatibility
   region?: string
+  email?: string // Optional: specify owner email when using service_role_key
 }
 
 /**
@@ -499,13 +500,61 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
       ownerUserId = await getCurrentUserId(req, undefined, false) || undefined
       console.log('User isolation enabled, owner user ID:', ownerUserId)
       
-      if (!ownerUserId) {
+      // If using service_role and email is provided, look up the user ID
+      if (ownerUserId === 'service_role' && body.email) {
+        console.log('Service role detected with email parameter, looking up user:', body.email)
+        try {
+          const { Pool } = await import('pg')
+          const pool = new Pool({
+            host: process.env.POSTGRES_HOST || 'db',
+            port: parseInt(process.env.POSTGRES_PORT || '5432'),
+            database: process.env.POSTGRES_DB || 'postgres',
+            user: process.env.POSTGRES_USER || 'postgres',
+            password: process.env.POSTGRES_PASSWORD || 'postgres',
+          })
+          
+          const result = await pool.query(
+            'SELECT id FROM auth.users WHERE email = $1',
+            [body.email]
+          )
+          
+          await pool.end()
+          
+          if (result.rows.length > 0) {
+            ownerUserId = result.rows[0].id
+            console.log('Found user ID for email:', body.email, '-> ID:', ownerUserId)
+          } else {
+            // Rollback: Delete the created database user and database
+            await rollbackProjectCreation(databaseName, projectRef, initService, databaseUserCreated ? databaseUser : undefined)
+            
+            return res.status(404).json({
+              error: {
+                message: `User with email ${body.email} not found`,
+                code: 'USER_NOT_FOUND',
+              },
+            })
+          }
+        } catch (error) {
+          console.error('Error looking up user by email:', error)
+          // Rollback: Delete the created database user and database
+          await rollbackProjectCreation(databaseName, projectRef, initService, databaseUserCreated ? databaseUser : undefined)
+          
+          return res.status(500).json({
+            error: {
+              message: 'Failed to look up user by email',
+              code: 'USER_LOOKUP_FAILED',
+            },
+          })
+        }
+      }
+      
+      if (!ownerUserId || ownerUserId === 'service_role') {
         // Rollback: Delete the created database user and database
         await rollbackProjectCreation(databaseName, projectRef, initService, databaseUserCreated ? databaseUser : undefined)
         
         return res.status(401).json({
           error: {
-            message: 'Authentication required to create projects',
+            message: 'Authentication required to create projects. Provide a user JWT token or use service_role_key with email parameter.',
             code: 'AUTHENTICATION_REQUIRED',
           },
         })
