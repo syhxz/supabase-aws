@@ -129,6 +129,31 @@ export class ServiceRouter {
   }
 
   /**
+   * Query the global database (postgres)
+   * Used for cross-project queries like listing users by project_ref
+   */
+  async queryGlobal<T = any>(
+    text: string,
+    values?: any[]
+  ): Promise<{ rows: T[]; rowCount: number }> {
+    const { Pool } = await import('pg')
+    const pool = new Pool({
+      host: process.env.POSTGRES_HOST || 'db',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: 'postgres',
+      user: 'supabase_auth_admin',
+      password: process.env.POSTGRES_PASSWORD,
+    })
+    
+    try {
+      const result = await pool.query(text, values)
+      return { rows: result.rows, rowCount: result.rowCount || 0 }
+    } finally {
+      await pool.end()
+    }
+  }
+
+  /**
    * Register a new project with the service router
    * 
    * @param config - Project configuration

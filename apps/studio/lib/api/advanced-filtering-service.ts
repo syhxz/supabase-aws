@@ -27,8 +27,8 @@ export class AdvancedFilteringService {
     const filters: AdvancedFilter[] = []
 
     for (const [key, value] of Object.entries(query)) {
-      // Skip non-filter parameters
-      if (['select', 'order', 'limit', 'offset', 'count', 'schema'].includes(key)) {
+      // Skip non-filter parameters (including Next.js route parameters)
+      if (['select', 'order', 'limit', 'offset', 'count', 'schema', 'path', 'ref'].includes(key)) {
         continue
       }
 
@@ -93,7 +93,50 @@ export class AdvancedFilteringService {
           })
         }
       } else {
-        // Handle simple equality filters
+        // Handle simple equality filters or value-based operators (?column=operator.value)
+        if (typeof value === 'string' && value.includes('.')) {
+          const valueParts = value.split('.')
+          const operator = valueParts[0] as AdvancedFilterOperator
+          
+          if (this.isAdvancedFilterOperator(operator)) {
+            const actualValue = valueParts.slice(1).join('.')
+            let filterValue: any = actualValue
+            
+            // Handle array values for 'in' operator
+            if (operator === 'in') {
+              filterValue = actualValue.split(',').map(v => v.trim())
+            }
+            
+            // Handle boolean and null values for 'is' operator
+            if (operator === 'is') {
+              if (actualValue === 'null') filterValue = null
+              else if (actualValue === 'true') filterValue = true
+              else if (actualValue === 'false') filterValue = false
+            }
+            
+            // Handle boolean values for 'eq' operator
+            if (operator === 'eq') {
+              if (actualValue === 'true') filterValue = true
+              else if (actualValue === 'false') filterValue = false
+            }
+            
+            // Handle range operators with proper type conversion
+            if (['gte', 'lte', 'gt', 'lt'].includes(operator)) {
+              filterValue = this.convertValueForRangeOperator(actualValue)
+            }
+            
+            filters.push({
+              column: key,
+              operator,
+              value: filterValue,
+              negate: false,
+              logicalOperator: 'and'
+            })
+            continue
+          }
+        }
+        
+        // Simple equality
         filters.push({
           column: key,
           operator: 'eq',

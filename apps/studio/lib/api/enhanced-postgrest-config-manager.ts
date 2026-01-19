@@ -1,22 +1,21 @@
-import { NextApiRequest, NextApiResponse } from 'next'
 import { ProjectIsolationContext } from './secure-api-wrapper'
 import { DataApiConfigResponse } from './data-api-config-data-access'
 import { getProjectDatabaseClient } from './project-database-client'
-import { PostgRESTConfigManager, PostgRESTProjectConfig } from './postgrest-config-manager'
+import { getPostgRESTConfigManager, PostgRESTProjectConfig } from './postgrest-config-manager'
 
 /**
  * Enhanced PostgREST Configuration Manager
- * Extends the base PostgREST configuration with advanced features
+ * Manages enhanced PostgREST configuration with advanced features
+ * Uses composition instead of inheritance to work with the singleton PostgRESTConfigManager
  * Requirements: 1.1, 2.1, 13.1
  */
-export class EnhancedPostgRESTConfigManager extends PostgRESTConfigManager {
+export class EnhancedPostgRESTConfigManager {
   private static enhancedInstance: EnhancedPostgRESTConfigManager
   private containerConfigs: Map<string, EnhancedContainerConfig> = new Map()
   private healthCheckIntervals: Map<string, NodeJS.Timeout> = new Map()
+  private baseConfigManager = getPostgRESTConfigManager()
 
-  private constructor() {
-    super()
-  }
+  private constructor() {}
 
   static getInstance(): EnhancedPostgRESTConfigManager {
     if (!EnhancedPostgRESTConfigManager.enhancedInstance) {
@@ -33,7 +32,7 @@ export class EnhancedPostgRESTConfigManager extends PostgRESTConfigManager {
     context: ProjectIsolationContext,
     dataApiConfig: DataApiConfigResponse
   ): Promise<EnhancedPostgRESTProjectConfig> {
-    const baseConfig = await this.getProjectConfig(context, dataApiConfig)
+    const baseConfig = await this.baseConfigManager.getProjectConfig(context, dataApiConfig)
     const projectRef = context.projectRef
     
     // Check if we have enhanced configuration cached
@@ -75,21 +74,22 @@ export class EnhancedPostgRESTConfigManager extends PostgRESTConfigManager {
     const connectionDetails = await this.getProjectConnectionDetails(projectRef)
     
     // Build enhanced configuration
+    // All features are enabled by default, can be disabled via environment variables
     const enhancedConfig: EnhancedPostgRESTProjectConfig = {
       ...baseConfig,
-      // Enhanced features configuration
-      enableRPCFunctions: true,
-      enableDatabaseViews: true,
-      enableAdvancedJSON: true,
-      enableFullTextSearch: true,
-      enableAdvancedFiltering: true,
-      enableAggregateQueries: true,
-      enableBulkOperations: true,
-      enableNestedResources: true,
-      enableTransactions: true,
-      enableArrayOperations: true,
-      enableContentNegotiation: true,
-      enableResponseShaping: true,
+      // Enhanced features configuration (default: true, disable with DISABLE_* env vars)
+      enableRPCFunctions: process.env.DISABLE_RPC_FUNCTIONS !== 'true',
+      enableDatabaseViews: process.env.DISABLE_DATABASE_VIEWS !== 'true',
+      enableAdvancedJSON: process.env.DISABLE_ADVANCED_JSON !== 'true',
+      enableFullTextSearch: process.env.DISABLE_FULL_TEXT_SEARCH !== 'true',
+      enableAdvancedFiltering: process.env.DISABLE_ADVANCED_FILTERING !== 'true',
+      enableAggregateQueries: process.env.DISABLE_AGGREGATE_QUERIES !== 'true',
+      enableBulkOperations: process.env.DISABLE_BULK_OPERATIONS !== 'true',
+      enableNestedResources: process.env.DISABLE_NESTED_RESOURCES !== 'true',
+      enableTransactions: process.env.DISABLE_TRANSACTIONS !== 'true',
+      enableArrayOperations: process.env.DISABLE_ARRAY_OPERATIONS !== 'true',
+      enableContentNegotiation: process.env.DISABLE_CONTENT_NEGOTIATION !== 'true',
+      enableResponseShaping: process.env.DISABLE_RESPONSE_SHAPING !== 'true',
       
       // Performance and monitoring configuration
       queryTimeout: 30000, // 30 seconds
@@ -214,7 +214,7 @@ export class EnhancedPostgRESTConfigManager extends PostgRESTConfigManager {
         'system', // System user for health checks
         'SELECT 1 as health_check',
         [],
-        { skipPermissionCheck: true, timeout: config.healthCheckTimeout }
+        { skipPermissionCheck: true }
       )
       
       const responseTime = Date.now() - startTime
@@ -295,7 +295,7 @@ export class EnhancedPostgRESTConfigManager extends PostgRESTConfigManager {
   clearEnhancedProjectConfig(projectRef: string): void {
     this.stopHealthMonitoring(projectRef)
     this.containerConfigs.delete(projectRef)
-    this.clearProjectConfig(projectRef) // Clear base configuration
+    this.baseConfigManager.clearProjectConfig(projectRef) // Clear base configuration
   }
 
   /**

@@ -432,16 +432,16 @@ export class AuthServiceAdapter {
   ): Promise<User[]> {
     const { limit = 50, offset = 0 } = options
 
-    const result = await this.serviceRouter.query(
-      projectRef,
+    const result = await this.serviceRouter.queryGlobal(
       `SELECT id, email, email_confirmed_at, created_at, updated_at,
               raw_app_meta_data, raw_user_meta_data, phone, phone_confirmed_at,
               confirmed_at, is_super_admin, is_sso_user, last_sign_in_at
        FROM auth.users
-       WHERE deleted_at IS NULL
+       WHERE deleted_at IS NULL 
+         AND raw_user_meta_data->>'project_ref' = $1
        ORDER BY created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
+       LIMIT $2 OFFSET $3`,
+      [projectRef, limit, offset]
     )
 
     return result.rows.map((row) => this.mapUserRow(row))

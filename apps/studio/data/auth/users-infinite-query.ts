@@ -47,26 +47,16 @@ export const useUsersInfiniteQuery = <TData = UsersData>(
 
   return useInfiniteQuery<UsersData, UsersError, TData>({
     queryKey: authKeys.usersInfinite(projectRef, { keywords, filter, providers, sort, order }),
-    queryFn: ({ signal, pageParam }) => {
-      return executeSql(
-        {
-          projectRef,
-          connectionString,
-          sql: getPaginatedUsersSQL({
-            page: column ? undefined : (pageParam as number),
-            verified: filter,
-            keywords,
-            providers,
-            sort: sort ?? 'id',
-            order: order ?? 'asc',
-            limit: USERS_PAGE_LIMIT,
-            column,
-            startAt: column ? (pageParam as string) : undefined,
-          }),
-          queryKey: authKeys.usersInfinite(projectRef),
-        },
-        signal
-      )
+    queryFn: async ({ signal, pageParam }) => {
+      if (!projectRef) throw new Error('Project reference is required')
+      
+      const response = await fetch(`/api/platform/auth/${projectRef}/users`, { signal })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.statusText}`)
+      }
+      
+      const users = await response.json()
+      return { result: users }
     },
     enabled: enabled && typeof projectRef !== 'undefined' && isActive,
     getNextPageParam(lastPage, pages) {

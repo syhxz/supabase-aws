@@ -1,4 +1,3 @@
-import { PoolClient } from 'pg'
 import { getServiceRouter } from '../service-router'
 import { v4 as uuidv4 } from 'uuid'
 import * as fs from 'fs/promises'
@@ -157,122 +156,56 @@ export class StorageServiceAdapter {
     bucketName: string,
     filePath: string,
     fileData: Buffer,
-    options: FileUploadOptions = {}
+    options: FileUploadOptions = {},
+    userToken?: string
   ): Promise<FileObject> {
-    const { contentType, cacheControl, upsert = false, metadata = {} } = options
+    const { contentType = 'application/octet-stream', cacheControl, upsert = false } = options
 
-    // Validate inputs
-    if (!bucketName || !filePath) {
-      throw new Error('Bucket name and file path are required')
-    }
-
-    // Validate file path (no leading slash, no parent directory references)
-    if (filePath.startsWith('/') || filePath.includes('..')) {
-      throw new Error('Invalid file path')
-    }
-
-    return this.serviceRouter.withTransaction(projectRef, async (client) => {
-      // Verify bucket exists
-      const bucketResult = await client.query(
-        'SELECT id, file_size_limit, allowed_mime_types FROM storage.buckets WHERE name = $1',
-        [bucketName]
-      )
-
-      if (bucketResult.rows.length === 0) {
-        throw new Error(`Bucket '${bucketName}' not found`)
-      }
-
-      const bucket = bucketResult.rows[0]
-
-      // Check file size limit
-      if (bucket.file_size_limit && fileData.length > bucket.file_size_limit) {
-        throw new Error(
-          `File size exceeds bucket limit of ${bucket.file_size_limit} bytes`
-        )
-      }
-
-      // Check allowed mime types
-      if (
-        bucket.allowed_mime_types &&
-        bucket.allowed_mime_types.length > 0 &&
-        contentType
-      ) {
-        if (!bucket.allowed_mime_types.includes(contentType)) {
-          throw new Error(
-            `File type '${contentType}' is not allowed in this bucket`
-          )
-        }
-      }
-
-      // Check if file already exists
-      const existingFile = await client.query(
-        'SELECT id FROM storage.objects WHERE bucket_id = $1 AND name = $2',
-        [bucketName, filePath]
-      )
-
-      let fileId: string
-      const now = new Date().toISOString()
-
-      if (existingFile.rows.length > 0) {
-        if (!upsert) {
-          throw new Error(`File '${filePath}' already exists`)
-        }
-
-        // Update existing file
-        fileId = existingFile.rows[0].id
-
-        await client.query(
-          `UPDATE storage.objects 
-           SET updated_at = $1, metadata = $2, last_accessed_at = $3
-           WHERE id = $4`,
-          [now, JSON.stringify(metadata), now, fileId]
-        )
-      } else {
-        // Insert new file metadata
-        fileId = uuidv4()
-
-        // Parse path tokens (split by /)
-        const pathTokens = filePath.split('/').filter((token) => token.length > 0)
-
-        await client.query(
-          `INSERT INTO storage.objects (
-            id, bucket_id, name, created_at, updated_at,
-            last_accessed_at, metadata, path_tokens
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            fileId,
-            bucketName,
-            filePath,
-            now,
-            now,
-            now,
-            JSON.stringify(metadata),
-            pathTokens,
-          ]
-        )
-      }
-
-      // Generate file path with project_ref
-      const physicalPath = this.getPhysicalFilePath(projectRef, bucketName, filePath)
-
-      // Ensure directory exists
-      const directory = path.dirname(physicalPath)
-      await fs.mkdir(directory, { recursive: true })
-
-      // Write file to disk
-      await fs.writeFile(physicalPath, fileData)
-
-      // Fetch and return the file object
-      const fileResult = await client.query(
-        `SELECT id, bucket_id, name, owner, created_at, updated_at,
-                last_accessed_at, metadata, path_tokens, version
-         FROM storage.objects
-         WHERE id = $1`,
-        [fileId]
-      )
-
-      return this.mapFileObjectRow(fileResult.rows[0])
+    // Upload to global Storage API
+    const storageUrl = process.env.STORAGE_API_URL || 'http://storage:5000'
+    const token = userToken || process.env.SERVICE_ROLE_KEY
+    
+    const response = await fetch(`${storageUrl}/object/${bucketName}/${filePath}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': contentType,
+        'x-upsert': upsert ? 'true' : 'false',
+        ...(cacheControl && { 'cache-control': cacheControl })
+      },
+      body: fileData as any
     })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Upload failed: ${error}`)
+    }
+
+    const result = await response.json()
+    
+    // Sync metadata to project database
+    const fileId = result.Id || uuidv4()
+    const now = new Date().toISOString()
+    const pathTokens = filePath.split('/').filter(t => t.length > 0)
+    
+    await this.serviceRouter.query(
+      projectRef,
+      `INSERT INTO storage.objects (id, bucket_id, name, created_at, updated_at, last_accessed_at, path_tokens, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET updated_at = $4, last_accessed_at = $6`,
+      [fileId, bucketName, filePath, now, now, now, pathTokens, JSON.stringify(result)]
+    )
+
+    return {
+      id: fileId,
+      bucket_id: bucketName,
+      name: filePath,
+      created_at: now,
+      updated_at: now,
+      last_accessed_at: now,
+      path_tokens: pathTokens,
+      metadata: result
+    }
   }
 
   /**
@@ -451,7 +384,8 @@ export class StorageServiceAdapter {
   async downloadFile(
     projectRef: string,
     bucketName: string,
-    filePath: string
+    filePath: string,
+    userToken?: string
   ): Promise<Buffer> {
     // Verify file exists in database
     const fileObject = await this.getFile(projectRef, bucketName, filePath)
@@ -467,17 +401,21 @@ export class StorageServiceAdapter {
       [new Date().toISOString(), fileObject.id]
     )
 
-    // Read file from disk
-    const physicalPath = this.getPhysicalFilePath(projectRef, bucketName, filePath)
-
-    try {
-      return await fs.readFile(physicalPath)
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        throw new Error(`File '${filePath}' not found on disk`)
+    // Download from global Storage API
+    const storageUrl = process.env.STORAGE_API_URL || 'http://storage:5000'
+    const token = userToken || process.env.SERVICE_ROLE_KEY
+    
+    const response = await fetch(`${storageUrl}/object/${bucketName}/${filePath}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
       }
-      throw error
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.statusText}`)
     }
+
+    return Buffer.from(await response.arrayBuffer())
   }
 
   /**

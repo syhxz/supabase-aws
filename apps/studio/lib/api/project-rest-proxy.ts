@@ -1,11 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { ProjectIsolationContext } from './secure-api-wrapper'
 import { DataApiConfigResponse } from './data-api-config-data-access'
-import { createProjectPostgRESTEngine } from './project-postgrest-engine'
+import { EnhancedProjectPostgRESTEngine } from './enhanced-project-postgrest-engine'
 
 /**
  * Project-specific REST API proxy service
- * Uses our custom PostgREST engine to handle requests with project-specific database connections
+ * Uses our enhanced PostgREST engine to handle requests with project-specific database connections
+ * Supports RPC, transactions, aggregates, full-text search, and more
  */
 export class ProjectRestProxy {
   constructor(
@@ -14,34 +15,34 @@ export class ProjectRestProxy {
   ) {}
 
   /**
-   * Proxy a REST API request using our PostgREST engine
+   * Proxy a REST API request using our enhanced PostgREST engine
+   * All enhanced features are enabled by default
    */
   async proxyRequest(req: NextApiRequest, res: NextApiResponse, targetPath: string): Promise<void> {
     try {
-      // Extract table name from the target path
-      const tableName = targetPath || 'feedback' // Default to feedback table for testing
-      
-      // Validate table name (basic security check)
-      if (!this.isValidTableName(tableName)) {
+      // Validate resource path (basic security check)
+      // Note: targetPath can be 'rpc/function_name', 'table_name', 'functions', etc.
+      if (!this.isValidResourcePath(targetPath)) {
         return res.status(400).json({
           code: 'PGRST103',
-          message: 'Invalid table name',
-          hint: 'Table name must contain only letters, numbers, and underscores'
+          message: 'Invalid resource path',
+          hint: 'Resource path must contain only letters, numbers, underscores, and forward slashes'
         })
       }
       
-      // Check if the table is in allowed schemas
-      if (!this.isTableInAllowedSchemas(tableName)) {
+      // For table access, check if the table is in allowed schemas
+      // Skip this check for special paths like 'rpc/', 'functions', 'schema'
+      if (!this.isSpecialPath(targetPath) && !this.isResourceInAllowedSchemas(targetPath)) {
         return res.status(403).json({
           code: 'PGRST301',
           message: 'Permission denied for schema',
-          hint: 'The table is not in an exposed schema'
+          hint: 'The resource is not in an exposed schema'
         })
       }
       
-      // Create and use our PostgREST engine
-      const postgrestEngine = createProjectPostgRESTEngine(this.context, this.config)
-      await postgrestEngine.handleRequest(req, res, tableName)
+      // Use enhanced PostgREST engine with all features enabled by default
+      const postgrestEngine = new EnhancedProjectPostgRESTEngine(this.context, this.config)
+      await postgrestEngine.handleEnhancedRequest(req, res, this.context, this.config, targetPath)
       
     } catch (error) {
       console.error('Project REST proxy error:', error)
@@ -55,27 +56,40 @@ export class ProjectRestProxy {
   }
 
   /**
-   * Validate table name for security
+   * Validate resource path for security
+   * Allows table names, RPC paths, and special endpoints
    */
-  private isValidTableName(tableName: string): boolean {
-    // Allow only alphanumeric characters, underscores, and dots (for schema.table)
-    const validPattern = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/
-    return validPattern.test(tableName)
+  private isValidResourcePath(resourcePath: string): boolean {
+    if (!resourcePath) return true // Empty path is valid (will be handled by engine)
+    
+    // Allow alphanumeric characters, underscores, dots (for schema.table), and forward slashes (for rpc/)
+    const validPattern = /^[a-zA-Z_][a-zA-Z0-9_/]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/
+    return validPattern.test(resourcePath)
   }
 
   /**
-   * Check if table is in allowed schemas
+   * Check if path is a special endpoint (not a table)
    */
-  private isTableInAllowedSchemas(tableName: string): boolean {
+  private isSpecialPath(resourcePath: string): boolean {
+    if (!resourcePath) return false
+    
+    const specialPaths = ['rpc/', 'functions', 'schema']
+    return specialPaths.some(path => resourcePath.startsWith(path) || resourcePath === path)
+  }
+
+  /**
+   * Check if resource is in allowed schemas
+   */
+  private isResourceInAllowedSchemas(resourcePath: string): boolean {
     const allowedSchemas = this.config.exposedSchemas
     
-    // If no schema specified in table name, assume public schema
-    if (!tableName.includes('.')) {
+    // If no schema specified in resource path, assume public schema
+    if (!resourcePath.includes('.')) {
       return allowedSchemas.includes('public')
     }
     
-    // Extract schema from table name
-    const [schema] = tableName.split('.')
+    // Extract schema from resource path
+    const [schema] = resourcePath.split('.')
     return allowedSchemas.includes(schema)
   }
 }

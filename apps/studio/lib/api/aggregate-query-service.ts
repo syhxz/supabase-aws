@@ -1,6 +1,6 @@
 import { NextApiRequest } from 'next'
 import { ProjectIsolationContext } from './secure-api-wrapper'
-import { createProjectDatabaseClient } from './project-database-client'
+import { getProjectDatabaseClient } from './project-database-client'
 
 /**
  * Aggregate Query Service
@@ -133,8 +133,8 @@ export class AggregateQueryService {
     const whereFilters: WhereFilter[] = []
 
     for (const [key, value] of Object.entries(query)) {
-      // Skip special parameters
-      if (['select', 'order', 'limit', 'offset', 'count', 'schema', 'group_by', 'groupBy'].includes(key) ||
+      // Skip special parameters (including Next.js route parameters)
+      if (['select', 'order', 'limit', 'offset', 'count', 'schema', 'group_by', 'groupBy', 'path', 'ref'].includes(key) ||
           key.startsWith('having.')) {
         continue
       }
@@ -153,6 +153,22 @@ export class AggregateQueryService {
           })
         }
       } else {
+        // Check if value contains operator (format: ?column=operator.value)
+        if (typeof value === 'string' && value.includes('.')) {
+          const valueParts = value.split('.')
+          const operator = valueParts[0] as WhereOperator
+          
+          if (this.isValidWhereOperator(operator)) {
+            const actualValue = valueParts.slice(1).join('.')
+            whereFilters.push({
+              column: key,
+              operator,
+              value: this.parseWhereValue(operator, actualValue)
+            })
+            continue
+          }
+        }
+        
         // Default to equality filter
         if (this.isValidColumnName(key)) {
           whereFilters.push({
@@ -428,8 +444,13 @@ export class AggregateQueryService {
       )
 
       // Execute the query
-      const client = createProjectDatabaseClient(context)
-      const result = await client.query(query, params)
+      const client = getProjectDatabaseClient()
+      const result = await client.queryProjectDatabase(
+        context.projectRef,
+        context.userId,
+        query,
+        params
+      )
 
       const executionTime = Date.now() - startTime
 
@@ -437,7 +458,12 @@ export class AggregateQueryService {
       let totalCount: number | undefined
       if (limit || offset) {
         const countQuery = this.buildCountQuery(tableName, groupBy, whereFilters, havingFilters)
-        const countResult = await client.query(countQuery.query, countQuery.params)
+        const countResult = await client.queryProjectDatabase(
+          context.projectRef,
+          context.userId,
+          countQuery.query,
+          countQuery.params
+        )
         totalCount = parseInt(countResult.rows[0]?.count || '0', 10)
       }
 

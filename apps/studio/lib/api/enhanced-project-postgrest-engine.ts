@@ -722,7 +722,7 @@ export class EnhancedProjectPostgRESTEngine extends ProjectPostgRESTEngine {
     // Parse filters
     const filters: ViewFilter[] = []
     for (const [key, value] of Object.entries(query)) {
-      if (key === 'select' || key === 'order' || key === 'limit' || key === 'offset' || key === 'count' || key === 'schema') {
+      if (key === 'select' || key === 'order' || key === 'limit' || key === 'offset' || key === 'count' || key === 'schema' || key === 'path' || key === 'ref') {
         continue
       }
 
@@ -1299,11 +1299,11 @@ export class EnhancedProjectPostgRESTEngine extends ProjectPostgRESTEngine {
       }
 
       // Add row count headers for pagination
-      if (result.totalCount !== undefined) {
+      if (result.totalCount !== undefined && result.rowCount !== undefined) {
         const start = offset || 0
         const end = start + result.rowCount - 1
         res.setHeader('Content-Range', `${start}-${end}/${result.totalCount}`)
-      } else if (result.rowCount > 0) {
+      } else if (result.rowCount !== undefined && result.rowCount > 0) {
         const start = offset || 0
         const end = start + result.rowCount - 1
         res.setHeader('Content-Range', `${start}-${end}/*`)
@@ -1704,6 +1704,23 @@ export class EnhancedProjectPostgRESTEngine extends ProjectPostgRESTEngine {
     }
 
     const query = req.query
+    
+    // Check if select parameter contains aggregate functions - should use aggregate path instead
+    const selectParam = query.select as string
+    if (selectParam) {
+      const aggregatePattern = /(count|sum|avg|min|max)\s*\(/i
+      if (aggregatePattern.test(selectParam)) {
+        return false // Let aggregate handler deal with it
+      }
+      // Check if select contains nested resources (e.g., "table(columns)")
+      // Nested resources have pattern: word(...)
+      const nestedPattern = /\w+\s*\([^)]*\)/
+      if (nestedPattern.test(selectParam)) {
+        return false // Let nested resource handler deal with it
+      }
+      // Non-aggregate, non-nested select should use advanced filtering path
+      return true
+    }
     
     // Use the advanced filtering service to parse and detect advanced operators
     const advancedFilters = this.advancedFilteringService.parseAdvancedFilters(query)
@@ -2895,10 +2912,12 @@ export class EnhancedProjectPostgRESTEngine extends ProjectPostgRESTEngine {
     const preferHeader = req.headers['prefer'] as string
     const transactionHeader = req.headers['x-supabase-tx'] as string
 
+    // Declare transactionId outside try block so it's accessible in catch
+    let transactionId: string | null = null
+
     try {
       // Parse transaction directive from Prefer header
       let transactionAction: string | null = null
-      let transactionId: string | null = null
       let isolationLevel: string | undefined
 
       if (preferHeader && preferHeader.includes('tx=')) {

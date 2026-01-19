@@ -70,6 +70,22 @@ export class UserPermissionService {
   private async queryUserPermissions(userId: string, projectRef: string): Promise<UserPermissions | null> {
     const poolManager = getDatabasePoolManager()
     
+    // Get SSL configuration - respect POSTGRES_SSL_MODE environment variable
+    const globalSSLMode = process.env.POSTGRES_SSL_MODE || process.env.DATABASE_SSL_MODE
+    let sslConfig: boolean | object = false
+    
+    if (globalSSLMode) {
+      // Explicitly set SSL mode takes priority
+      sslConfig = this.parseSSLMode(globalSSLMode)
+      console.log(`[UserPermissionService] Using explicit SSL mode: ${globalSSLMode} -> ${JSON.stringify(sslConfig)}`)
+    } else if (process.env.NODE_ENV === 'production') {
+      // Only enable SSL in production if not explicitly disabled
+      sslConfig = { rejectUnauthorized: false }
+      console.log(`[UserPermissionService] Production environment, enabling SSL with rejectUnauthorized: false`)
+    } else {
+      console.log(`[UserPermissionService] No SSL mode specified, SSL disabled`)
+    }
+    
     // Global database configuration
     const globalDbConfig: PoolConfig = {
       host: process.env.POSTGRES_HOST || 'db',
@@ -80,7 +96,7 @@ export class UserPermissionService {
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      ssl: sslConfig
     }
 
     const poolKey = 'global-permissions'
@@ -310,6 +326,40 @@ export class UserPermissionService {
   clearAllCache(): void {
     this.permissionCache.clear()
     this.cacheExpiry.clear()
+  }
+
+  /**
+   * Parse SSL mode from string
+   */
+  private parseSSLMode(sslMode: string): boolean | object {
+    const mode = sslMode.toLowerCase()
+    
+    switch (mode) {
+      case 'require':
+        return { rejectUnauthorized: true }
+      case 'prefer':
+        return { rejectUnauthorized: false }
+      case 'allow':
+        return { rejectUnauthorized: false }
+      case 'verify-ca':
+        return { 
+          rejectUnauthorized: true,
+          ca: process.env.POSTGRES_SSL_CA_CERT 
+        }
+      case 'verify-full':
+        return { 
+          rejectUnauthorized: true,
+          ca: process.env.POSTGRES_SSL_CA_CERT,
+          checkServerIdentity: () => undefined
+        }
+      case 'disable':
+      case 'none':
+      case 'false':
+        return false
+      default:
+        console.warn(`[UserPermissionService] Unknown SSL mode: ${sslMode}, defaulting to disabled`)
+        return false
+    }
   }
 }
 

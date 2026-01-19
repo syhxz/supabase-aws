@@ -85,7 +85,8 @@ export class ProjectPostgRESTEngine {
     
     // Parse query parameters for filtering
     for (const [key, value] of Object.entries(req.query)) {
-      if (key === 'path') continue
+      // Skip special parameters
+      if (['path', 'limit', 'offset', 'order', 'select'].includes(key)) continue
       
       if (typeof value === 'string') {
         // Handle PostgREST operator format: ?column=operator.value or ?column.operator=value

@@ -584,6 +584,8 @@ export class ProjectDatabaseClient {
    * Requirements: 12.1, 12.2, 12.3, 12.5
    */
   private getProjectSSLConfig(project: ProjectMetadata): boolean | object {
+    console.log(`[getProjectSSLConfig] Getting SSL config for project ${project.ref}`)
+    
     // Check if project has specific SSL configuration
     if ((project as any).ssl_config) {
       const sslConfig = this.parseProjectSSLConfig((project as any).ssl_config)
@@ -604,6 +606,7 @@ export class ProjectDatabaseClient {
         })
       }
       
+      console.log(`[getProjectSSLConfig] Using project-specific SSL config: ${JSON.stringify(sslConfig)}`)
       return sslConfig
     }
     
@@ -611,6 +614,7 @@ export class ProjectDatabaseClient {
     if (project.connection_string) {
       const sslFromConnectionString = this.extractSSLFromConnectionString(project.connection_string)
       if (sslFromConnectionString !== null) {
+        console.log(`[getProjectSSLConfig] Using SSL config from connection string: ${JSON.stringify(sslFromConnectionString)}`)
         return sslFromConnectionString
       }
     }
@@ -618,18 +622,23 @@ export class ProjectDatabaseClient {
     // Check environment variable for project-specific SSL override
     const projectSSLOverride = process.env[`PROJECT_${project.ref.toUpperCase()}_SSL_MODE`]
     if (projectSSLOverride) {
-      return this.parseSSLMode(projectSSLOverride)
+      const sslConfig = this.parseSSLMode(projectSSLOverride)
+      console.log(`[getProjectSSLConfig] Using project-specific SSL override: ${projectSSLOverride} -> ${JSON.stringify(sslConfig)}`)
+      return sslConfig
     }
     
     // Check global SSL configuration
     const globalSSLMode = process.env.POSTGRES_SSL_MODE || process.env.DATABASE_SSL_MODE
     if (globalSSLMode) {
-      return this.parseSSLMode(globalSSLMode)
+      const sslConfig = this.parseSSLMode(globalSSLMode)
+      console.log(`[getProjectSSLConfig] Using global SSL mode: ${globalSSLMode} -> ${JSON.stringify(sslConfig)}`)
+      return sslConfig
     }
     
-    // Default behavior: SSL is optional, not required
+    // Default behavior: SSL is disabled
     // This prevents connection failures when SSL is not supported by the database
-    return false // Disable SSL by default to avoid connection errors
+    console.log(`[getProjectSSLConfig] No SSL configuration found, defaulting to disabled`)
+    return false
   }
 
   /**
@@ -1068,9 +1077,15 @@ export class ProjectDatabaseClient {
     let sslConfig: boolean | object = false
     
     if (globalSSLMode) {
+      // Explicitly set SSL mode takes priority
       sslConfig = this.parseSSLMode(globalSSLMode)
+      console.log(`[getGlobalDatabaseConfig] Using explicit SSL mode: ${globalSSLMode} -> ${JSON.stringify(sslConfig)}`)
     } else if (process.env.NODE_ENV === 'production') {
+      // Only enable SSL in production if not explicitly disabled
       sslConfig = { rejectUnauthorized: false }
+      console.log(`[getGlobalDatabaseConfig] Production environment, enabling SSL with rejectUnauthorized: false`)
+    } else {
+      console.log(`[getGlobalDatabaseConfig] No SSL mode specified, SSL disabled`)
     }
     
     return {

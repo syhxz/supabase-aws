@@ -27,8 +27,8 @@ export class FullTextSearchService {
     const ftsFilters: FullTextSearchFilter[] = []
 
     for (const [key, value] of Object.entries(query)) {
-      // Skip non-filter parameters
-      if (['select', 'order', 'limit', 'offset', 'count', 'schema'].includes(key)) {
+      // Skip non-filter parameters (including Next.js route parameters)
+      if (['select', 'order', 'limit', 'offset', 'count', 'schema', 'path', 'ref'].includes(key)) {
         continue
       }
 
@@ -505,7 +505,7 @@ export class FullTextSearchService {
         query
       )
       
-      return result.rows.map(row => ({
+      return result.rows.map((row: any) => ({
         name: row.cfgname,
         owner: row.cfgowner,
         parser: row.cfgparser,
